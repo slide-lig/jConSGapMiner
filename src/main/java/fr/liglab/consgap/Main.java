@@ -21,6 +21,7 @@
 package fr.liglab.consgap;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import fr.liglab.consgap.internals.Dataset;
@@ -33,9 +34,9 @@ public class Main {
 		ds.recursivelyExpand();
 		long removeRedundantStart = System.currentTimeMillis();
 		List<int[]> minimalEmerging = ds.getResultsCollector().getNonRedundant();
-		// for (int[] seq : minimalEmerging) {
-		// System.out.println(Arrays.toString(seq));
-		// }
+		for (int[] seq : minimalEmerging) {
+			System.out.println(Arrays.toString(seq));
+		}
 		long endTime = System.currentTimeMillis();
 		System.out.println("total minimal emerging sequences = " + minimalEmerging.size()
 				+ "\ntotal sequences collected = " + ds.getResultsCollector().getNbEmergingSeqCollected());
