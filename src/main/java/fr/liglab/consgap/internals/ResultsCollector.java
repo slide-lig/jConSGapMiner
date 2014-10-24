@@ -16,14 +16,15 @@
 	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 	See the License for the specific language governing permissions and
 	limitations under the License.
-*/
+ */
 
 package fr.liglab.consgap.internals;
 
+import gnu.trove.TIntCollection;
+import gnu.trove.iterator.TIntIterator;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -32,10 +33,12 @@ public class ResultsCollector {
 
 	final private List<int[]> emergingSequences;
 	final private int[] rebasing;
+	private TIntCollection emergingItems;
 
-	public ResultsCollector(int[] rebasing) {
+	public ResultsCollector(int[] rebasing, TIntCollection emergingItems) {
 		this.rebasing = rebasing;
 		this.emergingSequences = new ArrayList<>();
+		this.emergingItems = emergingItems;
 	}
 
 	public EmergingStatus collectEmerging(int[] sequence, int expansionItem) {
@@ -80,6 +83,10 @@ public class ResultsCollector {
 			}
 		});
 		List<int[]> nonRedundant = new ArrayList<>();
+		TIntIterator iter = this.emergingItems.iterator();
+		while (iter.hasNext()) {
+			nonRedundant.add(new int[] { iter.next() });
+		}
 		TreeNode rootNode = new TreeNode();
 		for (int[] seq : emergingSequences) {
 			if (!recursiveSubsetCheck(rootNode, seq, 0)) {
@@ -90,10 +97,6 @@ public class ResultsCollector {
 				nonRedundant.add(rebasedSeq);
 				// insert in tree
 				insertIntoTree(rootNode, seq);
-			} else {
-				if (Arrays.equals(seq, new int[] { 214, 269, 277 })) {
-					System.out.println("eliminating " + Arrays.toString(seq));
-				}
 			}
 		}
 		return nonRedundant;
