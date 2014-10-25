@@ -18,13 +18,12 @@
 	limitations under the License.
  */
 
-package fr.liglab.consgap.internals.bitset;
+package fr.liglab.consgap.dataset;
 
 import java.io.IOException;
 import java.util.BitSet;
 
-import fr.liglab.consgap.internals.ADataset;
-import fr.liglab.consgap.internals.ResultsCollector;
+import fr.liglab.consgap.collector.ResultsCollector;
 import gnu.trove.map.TIntObjectMap;
 
 final public class BitSetDataset extends ADataset<BitSet> {

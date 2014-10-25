@@ -18,9 +18,10 @@
 	limitations under the License.
  */
 
-package fr.liglab.consgap.internals;
+package fr.liglab.consgap.dataset;
 
-import fr.liglab.consgap.internals.ResultsCollector.EmergingStatus;
+import fr.liglab.consgap.collector.ResultsCollector;
+import fr.liglab.consgap.collector.ResultsCollector.EmergingStatus;
 import gnu.trove.TIntCollection;
 import gnu.trove.iterator.TIntIntIterator;
 import gnu.trove.list.array.TIntArrayList;
@@ -39,7 +40,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 
-public abstract class ADataset<S> implements Dataset {
+abstract class ADataset<S> implements Dataset {
 	protected final S[] currentSeqPresencePositive;
 	protected final S[] currentSeqPresenceNegative;
 	private final TIntObjectMap<S[]> itemPresenceMapPositive;

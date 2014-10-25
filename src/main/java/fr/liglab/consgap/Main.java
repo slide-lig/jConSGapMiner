@@ -21,47 +21,106 @@
 package fr.liglab.consgap;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import fr.liglab.consgap.internals.BatchFilteringResultsCollector;
-import fr.liglab.consgap.internals.Dataset;
-import fr.liglab.consgap.internals.MiningStep;
-import fr.liglab.consgap.internals.MiningThread;
-import fr.liglab.consgap.internals.bitset.BitSetDataset;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.PosixParser;
+
+import fr.liglab.consgap.collector.BatchFilteringResultsCollector;
+import fr.liglab.consgap.collector.OrderedResultsCollector;
+import fr.liglab.consgap.collector.PostFilteringResultsCollector;
+import fr.liglab.consgap.collector.ResultsCollector;
+import fr.liglab.consgap.dataset.BitSetDataset;
+import fr.liglab.consgap.dataset.Dataset;
+import fr.liglab.consgap.dataset.ListDataset;
+import fr.liglab.consgap.executor.BreadthFirstExecutor;
+import fr.liglab.consgap.executor.DepthFirstExecutor;
+import fr.liglab.consgap.executor.MiningExecutor;
+import fr.liglab.consgap.executor.MiningStep;
 
 public class Main {
 	public static void main(String[] args) throws IOException {
-		long startTime = System.currentTimeMillis();
-		Dataset ds = new BitSetDataset(new BatchFilteringResultsCollector(100), args[0], args[1],
-				Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]));
-		MiningStep initState = new MiningStep(ds);
-		final int nbThreads = Runtime.getRuntime().availableProcessors();
-		List<MiningThread> threads = new ArrayList<MiningThread>(nbThreads);
-		for (int id = 0; id < nbThreads; id++) {
-			threads.add(new MiningThread(id, threads));
+		Options options = new Options();
+		CommandLineParser parser = new PosixParser();
+
+		options.addOption("s", false, "Sparse: use int lists instead of bitsets to represent positions");
+		options.addOption("b", false, "Benchmark mode : sequences are not outputted at all");
+		options.addOption("h", false, "Show help");
+		options.addOption("w", false, "Use breadth first exploration instead of depth first. Usually less efficient.");
+		options.addOption("t", true, "How many threads will be launched (defaults to your machine's processors count)");
+		options.addOption(
+				"f",
+				true,
+				"Sequences filtering frequency, expressed in number of outputs. Recommended value is 100, avoids some redundant explorations.");
+		try {
+			CommandLine cmd = parser.parse(options, args);
+
+			if (cmd.getArgs().length != 5 || cmd.hasOption('h')) {
+				printMan(options);
+			} else {
+				standalone(cmd);
+			}
+		} catch (ParseException e) {
+			printMan(options);
 		}
-		for (MiningThread t : threads) {
-			t.init(initState);
-			t.start();
+	}
+
+	private static void printMan(Options options) {
+		String syntax = "java fr.liglab.consgap.Main [OPTIONS] INPUT_POS_DATASET INPUT_NEG_DATASET MINSUP_IN_POS MAXSUP_IN_NEG MAX_GAP";
+		String header = "\nOptions are :";
+		String footer = "Copyright 2014 Vincent Leroy, Université Joseph Fourier and CNRS";
+
+		HelpFormatter formatter = new HelpFormatter();
+		formatter.printHelp(80, syntax, header, options, footer);
+	}
+
+	private static void standalone(CommandLine cmd) throws IOException {
+		int nbThreads = Runtime.getRuntime().availableProcessors();
+		if (cmd.hasOption('t')) {
+			nbThreads = Math.max(1, Integer.parseInt(cmd.getOptionValue('t')));
 		}
-		for (MiningThread t : threads) {
-			try {
-				t.join();
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
+		ResultsCollector collector;
+		MiningExecutor executor;
+		if (cmd.hasOption('w')) {
+			collector = new OrderedResultsCollector();
+			executor = new BreadthFirstExecutor(nbThreads);
+		} else {
+			executor = new DepthFirstExecutor(nbThreads);
+			if (cmd.hasOption('f')) {
+				collector = new BatchFilteringResultsCollector(Integer.parseInt(cmd.getOptionValue('f')));
+			} else {
+				collector = new PostFilteringResultsCollector();
 			}
 		}
+		Dataset dataset;
+		if (cmd.hasOption('s')) {
+			dataset = new ListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
+					Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
+							.getArgs()[4]));
+		} else {
+			dataset = new BitSetDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
+					Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
+							.getArgs()[4]));
+		}
+
+		long startTime = System.currentTimeMillis();
+		executor.mine(dataset);
 		long removeRedundantStart = System.currentTimeMillis();
-		List<int[]> minimalEmerging = ds.getResultsCollector().getNonRedundant();
-		for (int[] seq : minimalEmerging) {
-			System.out.println(Arrays.toString(seq));
+		List<int[]> minimalEmerging = dataset.getResultsCollector().getNonRedundant();
+		if (!cmd.hasOption('b')) {
+			for (int[] seq : minimalEmerging) {
+				System.out.println(Arrays.toString(seq));
+			}
 		}
 		long endTime = System.currentTimeMillis();
-		System.out.println("total minimal emerging sequences = " + minimalEmerging.size()
-				+ "\ntotal sequences collected = " + ds.getResultsCollector().getNbCollected());
-		System.out.println("execution time " + (endTime - startTime) + " ms including "
+		System.err.println("total minimal emerging sequences = " + minimalEmerging.size()
+				+ "\ntotal sequences collected = " + dataset.getResultsCollector().getNbCollected());
+		System.err.println("execution time " + (endTime - startTime) + " ms including "
 				+ (endTime - removeRedundantStart) + " ms removing redundant results, performed "
 				+ MiningStep.loopCounts.get() + " iterations");
 	}

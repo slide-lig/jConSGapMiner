@@ -18,12 +18,11 @@
 	limitations under the License.
  */
 
-package fr.liglab.consgap.internals.intlist;
+package fr.liglab.consgap.dataset;
 
 import java.io.IOException;
 
-import fr.liglab.consgap.internals.ADataset;
-import fr.liglab.consgap.internals.ResultsCollector;
+import fr.liglab.consgap.collector.ResultsCollector;
 import gnu.trove.iterator.TIntIterator;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;

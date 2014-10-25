@@ -18,7 +18,7 @@
 	limitations under the License.
  */
 
-package fr.liglab.consgap.internals;
+package fr.liglab.consgap.collector;
 
 import gnu.trove.iterator.TIntIterator;
 
@@ -54,8 +54,6 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 	 */
 	@Override
 	public EmergingStatus collect(int[] sequence, int expansionItem) {
-		// System.err.println("collecting " + expansionItem + " " +
-		// Arrays.toString(sequence));
 		int[] fullSeq = new int[sequence.length + 1];
 		System.arraycopy(sequence, 0, fullSeq, 1, sequence.length);
 		fullSeq[0] = expansionItem;
