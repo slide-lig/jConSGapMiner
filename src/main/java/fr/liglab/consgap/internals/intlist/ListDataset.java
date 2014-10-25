@@ -20,7 +20,14 @@
 
 package fr.liglab.consgap.internals.intlist;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
+
 import fr.liglab.consgap.internals.Dataset;
+import fr.liglab.consgap.internals.PostFilteringResultsCollector;
 import fr.liglab.consgap.internals.ResultsCollector;
 import fr.liglab.consgap.internals.ResultsCollector.EmergingStatus;
 import gnu.trove.TIntCollection;
@@ -37,12 +44,6 @@ import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Comparator;
-
 public class ListDataset implements Dataset {
 	private final TIntList[] currentSeqPresencePositive;
 	private final TIntList[] currentSeqPresenceNegative;
@@ -54,8 +55,8 @@ public class ListDataset implements Dataset {
 	private final int[] sequence;
 	private final ResultsCollector resultsCollector;
 
-	public ListDataset(String positiveDataset, String negativeDataset, int posFreqLowerBound, int negFreqUpperBound,
-			int gapConstraint) throws IOException {
+	public ListDataset(ResultsCollector collector, String positiveDataset, String negativeDataset,
+			int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
 		this.posFreqLowerBound = posFreqLowerBound;
 		this.negFreqUpperBound = negFreqUpperBound;
 		this.gapConstraint = gapConstraint;
@@ -217,7 +218,9 @@ public class ListDataset implements Dataset {
 			}
 		}
 		br.close();
-		this.resultsCollector = new ResultsCollector(rebasing, emergingItems);
+		this.resultsCollector = collector;
+		this.resultsCollector.setRebasing(rebasing);
+		this.resultsCollector.setEmergingItems(emergingItems);
 	}
 
 	public ListDataset(ListDataset parentDataset, int expansionItem, TIntList[] expandedPosPositionsCompacted,
@@ -323,7 +326,7 @@ public class ListDataset implements Dataset {
 		EmergingStatus es;
 		// System.out.println("emerging " + emerging);
 		if (emerging) {
-			es = this.resultsCollector.collectEmerging(this.sequence, expansionItem);
+			es = this.resultsCollector.collect(this.sequence, expansionItem);
 		} else {
 			es = EmergingStatus.NO_EMERGING_SUBSET;// this.resultsCollector.hasEmergingSubseq(this.sequence,
 			// expansionItem);

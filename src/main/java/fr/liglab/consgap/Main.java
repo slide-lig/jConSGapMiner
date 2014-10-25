@@ -22,8 +22,10 @@ package fr.liglab.consgap;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import fr.liglab.consgap.internals.BatchFilteringResultsCollector;
 import fr.liglab.consgap.internals.Dataset;
 import fr.liglab.consgap.internals.MiningStep;
 import fr.liglab.consgap.internals.MiningThread;
@@ -32,8 +34,8 @@ import fr.liglab.consgap.internals.bitset.BitSetDataset;
 public class Main {
 	public static void main(String[] args) throws IOException {
 		long startTime = System.currentTimeMillis();
-		Dataset ds = new BitSetDataset(args[0], args[1], Integer.parseInt(args[2]), Integer.parseInt(args[3]),
-				Integer.parseInt(args[4]));
+		Dataset ds = new BitSetDataset(new BatchFilteringResultsCollector(100), args[0], args[1],
+				Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]));
 		MiningStep initState = new MiningStep(ds);
 		final int nbThreads = Runtime.getRuntime().availableProcessors();
 		List<MiningThread> threads = new ArrayList<MiningThread>(nbThreads);
@@ -54,12 +56,13 @@ public class Main {
 		long removeRedundantStart = System.currentTimeMillis();
 		List<int[]> minimalEmerging = ds.getResultsCollector().getNonRedundant();
 		for (int[] seq : minimalEmerging) {
-			// System.out.println(Arrays.toString(seq));
+			System.out.println(Arrays.toString(seq));
 		}
 		long endTime = System.currentTimeMillis();
 		System.out.println("total minimal emerging sequences = " + minimalEmerging.size()
-				+ "\ntotal sequences collected = " + ds.getResultsCollector().getNbEmergingSeqCollected());
+				+ "\ntotal sequences collected = " + ds.getResultsCollector().getNbCollected());
 		System.out.println("execution time " + (endTime - startTime) + " ms including "
-				+ (endTime - removeRedundantStart) + " ms removing redundant results " + MiningStep.loopCounts.get());
+				+ (endTime - removeRedundantStart) + " ms removing redundant results, performed "
+				+ MiningStep.loopCounts.get() + " iterations");
 	}
 }

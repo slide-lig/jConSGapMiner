@@ -57,8 +57,8 @@ public class BitSetDataset implements Dataset {
 	private final int[] sequence;
 	private final ResultsCollector resultsCollector;
 
-	public BitSetDataset(String positiveDataset, String negativeDataset, int posFreqLowerBound, int negFreqUpperBound,
-			int gapConstraint) throws IOException {
+	public BitSetDataset(ResultsCollector collector, String positiveDataset, String negativeDataset,
+			int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
 		this.posFreqLowerBound = posFreqLowerBound;
 		this.negFreqUpperBound = negFreqUpperBound;
 		this.gapConstraint = gapConstraint;
@@ -220,7 +220,9 @@ public class BitSetDataset implements Dataset {
 			}
 		}
 		br.close();
-		this.resultsCollector = new ResultsCollector(rebasing, emergingItems);
+		this.resultsCollector = collector;
+		this.resultsCollector.setRebasing(rebasing);
+		this.resultsCollector.setEmergingItems(emergingItems);
 	}
 
 	public BitSetDataset(BitSetDataset parentDataset, int expansionItem, BitSet[] expandedPosPositionsCompacted,
@@ -369,7 +371,7 @@ public class BitSetDataset implements Dataset {
 		EmergingStatus es;
 		// System.out.println("emerging " + emerging);
 		if (emerging) {
-			es = this.resultsCollector.collectEmerging(this.sequence, expansionItem);
+			es = this.resultsCollector.collect(this.sequence, expansionItem);
 		} else {
 			es = EmergingStatus.NO_EMERGING_SUBSET;// this.resultsCollector.hasEmergingSubseq(this.sequence,
 			// expansionItem);
