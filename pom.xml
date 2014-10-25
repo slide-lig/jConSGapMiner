@@ -5,9 +5,9 @@
   
   <modelVersion>4.0.0</modelVersion>
   <groupId>fr.liglab.consgap</groupId>
-  <artifactId>HypTest</artifactId>
+  <artifactId>ConSGapMiner</artifactId>
   <version>1.0</version>
-  <name>HypTest</name>
+  <name>ConSGapMiner</name>
   <description>Java implementation of the ConSGapMiner algorithm</description>
   
   <properties>
