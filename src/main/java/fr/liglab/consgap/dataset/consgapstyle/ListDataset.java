@@ -18,7 +18,7 @@
 	limitations under the License.
  */
 
-package fr.liglab.consgap.dataset;
+package fr.liglab.consgap.dataset.consgapstyle;
 
 import java.io.IOException;
 
@@ -28,7 +28,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
-final public class ListDataset extends ADataset<TIntList> {
+final public class ListDataset extends ATidBasedDataset<TIntList> {
 
 	public ListDataset(ResultsCollector collector, String positiveDataset, String negativeDataset,
 			int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
@@ -92,7 +92,7 @@ final public class ListDataset extends ADataset<TIntList> {
 	}
 
 	@Override
-	protected ADataset<TIntList> inistantiateDataset(int expansionItem, TIntList[] expandedPosPositionsCompacted,
+	protected ListDataset inistantiateDataset(int expansionItem, TIntList[] expandedPosPositionsCompacted,
 			TIntList[] expandedNegPositionsCompacted, TIntObjectMap<TIntList[]> newItemPresenceMapPositive,
 			TIntObjectMap<TIntList[]> newItemPresenceMapNegative) {
 		return new ListDataset(this, expansionItem, expandedPosPositionsCompacted, expandedNegPositionsCompacted,

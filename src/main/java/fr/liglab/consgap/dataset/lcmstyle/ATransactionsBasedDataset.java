@@ -18,12 +18,22 @@
 	limitations under the License.
  */
 
-package fr.liglab.consgap.dataset;
+package fr.liglab.consgap.dataset.lcmstyle;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 import fr.liglab.consgap.collector.ResultsCollector;
 import fr.liglab.consgap.collector.ResultsCollector.EmergingStatus;
+import fr.liglab.consgap.dataset.Dataset;
 import gnu.trove.TIntCollection;
 import gnu.trove.iterator.TIntIntIterator;
+import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.TIntObjectMap;
@@ -34,25 +44,22 @@ import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Comparator;
-
-abstract class ADataset<S> implements Dataset {
+abstract class ATransactionsBasedDataset<S> implements Dataset {
 	protected final S[] currentSeqPresencePositive;
 	protected final S[] currentSeqPresenceNegative;
-	private final TIntObjectMap<S[]> itemPresenceMapPositive;
+	protected final List<int[]> positiveTransactions;
+	protected final TIntObjectMap<S[]> itemPresenceMapPositive;
 	private final TIntObjectMap<S[]> itemPresenceMapNegative;
-	private final int posFreqLowerBound;// >=
+	protected final int posFreqLowerBound;// >=
 	private final int negFreqUpperBound;// <=
 	private final int gapConstraint;
 	private final int[] sequence;
 	private final ResultsCollector resultsCollector;
+	private final int[] possibleExtensions;
+	protected final int[] originalPosTransactionsMapping;
 
-	public ADataset(ResultsCollector collector, String positiveDataset, String negativeDataset, int posFreqLowerBound,
-			int negFreqUpperBound, int gapConstraint) throws IOException {
+	public ATransactionsBasedDataset(ResultsCollector collector, String positiveDataset, String negativeDataset,
+			int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
 		this.posFreqLowerBound = posFreqLowerBound;
 		this.negFreqUpperBound = negFreqUpperBound;
 		this.gapConstraint = gapConstraint;
@@ -163,6 +170,8 @@ abstract class ADataset<S> implements Dataset {
 
 		// we have all of our items and their new names, read datasets one last
 		// time and make BitSets
+		this.positiveTransactions = new ArrayList<int[]>(posFreqCounting.size());
+		TIntList transactionBuffer = new TIntArrayList(10000);
 		this.itemPresenceMapPositive = new TIntObjectHashMap<S[]>(posFreqCounting.size());
 		br = new BufferedReader(new FileReader(positiveDataset));
 		int lineNumber = 0;
@@ -173,6 +182,7 @@ abstract class ADataset<S> implements Dataset {
 					int itemOldId = Integer.parseInt(sp[i]);
 					if (posFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
+						transactionBuffer.add(item);
 						S[] bsArray = this.itemPresenceMapPositive.get(item);
 						if (bsArray == null) {
 							bsArray = this.initStructureArray(nbPositiveTransactions);
@@ -182,8 +192,12 @@ abstract class ADataset<S> implements Dataset {
 							bsArray[lineNumber] = this.initEmptyStructure();
 						}
 						this.addOccurence(i, bsArray[lineNumber]);
+					} else {
+						transactionBuffer.add(-1);
 					}
 				}
+				this.positiveTransactions.add(transactionBuffer.toArray());
+				transactionBuffer.clear();
 				lineNumber++;
 			}
 		}
@@ -214,6 +228,8 @@ abstract class ADataset<S> implements Dataset {
 			}
 		}
 		br.close();
+		this.possibleExtensions = this.itemPresenceMapPositive.keys();
+		this.originalPosTransactionsMapping = null;
 		this.resultsCollector = collector;
 		this.resultsCollector.setRebasing(rebasing);
 		this.resultsCollector.setEmergingItems(emergingItems);
@@ -225,9 +241,10 @@ abstract class ADataset<S> implements Dataset {
 
 	protected abstract void addOccurence(int pos, S struct);
 
-	protected ADataset(ADataset<S> parentDataset, int expansionItem, S[] expandedPosPositionsCompacted,
-			S[] expandedNegPositionsCompacted, TIntObjectMap<S[]> newItemPresenceMapPositive,
-			TIntObjectMap<S[]> newItemPresenceMapNegative) {
+	protected ATransactionsBasedDataset(ATransactionsBasedDataset<S> parentDataset, int expansionItem,
+			S[] expandedPosPositionsCompacted, S[] expandedNegPositionsCompacted,
+			TIntObjectMap<S[]> newItemPresenceMapPositive, TIntObjectMap<S[]> newItemPresenceMapNegative,
+			int[] expandedPosTransactionsMapping) {
 		this.posFreqLowerBound = parentDataset.posFreqLowerBound;
 		this.negFreqUpperBound = parentDataset.negFreqUpperBound;
 		this.gapConstraint = parentDataset.gapConstraint;
@@ -239,15 +256,20 @@ abstract class ADataset<S> implements Dataset {
 		this.itemPresenceMapNegative = newItemPresenceMapNegative;
 		this.currentSeqPresencePositive = expandedPosPositionsCompacted;
 		this.currentSeqPresenceNegative = expandedNegPositionsCompacted;
+		this.positiveTransactions = parentDataset.positiveTransactions;
+		this.originalPosTransactionsMapping = expandedPosTransactionsMapping;
+		this.possibleExtensions = this.computePossibleExtensions();
 	}
 
 	@Override
 	final public int[] getExtensions() {
-		return itemPresenceMapPositive.keys();
+		return this.possibleExtensions;
 	}
 
+	abstract protected int[] computePossibleExtensions();
+
 	@Override
-	final public ADataset<S> expand(final int expansionItem, final TIntSet deniedSiblingsExtensions)
+	final public ATransactionsBasedDataset<S> expand(final int expansionItem, final TIntSet deniedSiblingsExtensions)
 			throws EmergingParentException, EmergingExpansionException, InfrequentException, DeadEndException {
 		// compute support count in positive dataset
 		final S[] expansionItemPosPositions = this.itemPresenceMapPositive.get(expansionItem);
@@ -423,10 +445,16 @@ abstract class ADataset<S> implements Dataset {
 
 			// we can now shift expanded positions to fill the null entries
 			final S[] expandedPosPositionsCompacted = this.initStructureArray(finalPosSupport);
+			final int[] expandedPosTransactionsMapping = new int[finalPosSupport];
 			int writeIndex = 0;
 			for (int i = 0; i < expandedPosPositions.length; i++) {
 				if (expandedPosPositions[i] != null) {
 					expandedPosPositionsCompacted[writeIndex] = expandedPosPositions[i];
+					if (this.originalPosTransactionsMapping == null) {
+						expandedPosTransactionsMapping[writeIndex] = i;
+					} else {
+						expandedPosTransactionsMapping[writeIndex] = this.originalPosTransactionsMapping[i];
+					}
 					writeIndex++;
 				}
 			}
@@ -441,15 +469,17 @@ abstract class ADataset<S> implements Dataset {
 
 			// we have all we need, instantiate dataset
 			return this.inistantiateDataset(expansionItem, expandedPosPositionsCompacted,
-					expandedNegPositionsCompacted, newItemPresenceMapPositive, newItemPresenceMapNegative);
+					expandedNegPositionsCompacted, newItemPresenceMapPositive, newItemPresenceMapNegative,
+					expandedPosTransactionsMapping);
 		} else {
 			throw new DeadEndException();
 		}
 	}
 
-	protected abstract ADataset<S> inistantiateDataset(int expansionItem, S[] expandedPosPositionsCompacted,
-			S[] expandedNegPositionsCompacted, TIntObjectMap<S[]> newItemPresenceMapPositive,
-			TIntObjectMap<S[]> newItemPresenceMapNegative);
+	protected abstract ATransactionsBasedDataset<S> inistantiateDataset(int expansionItem,
+			S[] expandedPosPositionsCompacted, S[] expandedNegPositionsCompacted,
+			TIntObjectMap<S[]> newItemPresenceMapPositive, TIntObjectMap<S[]> newItemPresenceMapNegative,
+			int[] expandedPosTransactionsMapping);
 
 	protected abstract S findMatchingPosition(int transIndex, boolean positive, S extensionItemPos);
 

@@ -35,9 +35,11 @@ import fr.liglab.consgap.collector.BatchFilteringResultsCollector;
 import fr.liglab.consgap.collector.OrderedResultsCollector;
 import fr.liglab.consgap.collector.PostFilteringResultsCollector;
 import fr.liglab.consgap.collector.ResultsCollector;
-import fr.liglab.consgap.dataset.BitSetDataset;
 import fr.liglab.consgap.dataset.Dataset;
-import fr.liglab.consgap.dataset.ListDataset;
+import fr.liglab.consgap.dataset.consgapstyle.BitSetDataset;
+import fr.liglab.consgap.dataset.consgapstyle.ListDataset;
+import fr.liglab.consgap.dataset.lcmstyle.TransBasedBitSetDataset;
+import fr.liglab.consgap.dataset.lcmstyle.TransBasedListDataset;
 import fr.liglab.consgap.executor.BreadthFirstExecutor;
 import fr.liglab.consgap.executor.DepthFirstExecutor;
 import fr.liglab.consgap.executor.MiningExecutor;
@@ -53,6 +55,7 @@ public class Main {
 		options.addOption("h", false, "Show help");
 		options.addOption("w", false, "Use breadth first exploration instead of depth first. Usually less efficient.");
 		options.addOption("t", true, "How many threads will be launched (defaults to your machine's processors count)");
+		options.addOption("l", false, "Use lcm style, read dataset to generate candidates");
 		options.addOption(
 				"f",
 				true,
@@ -98,14 +101,24 @@ public class Main {
 			}
 		}
 		Dataset dataset;
-		if (cmd.hasOption('s')) {
-			dataset = new ListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
-					Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
-							.getArgs()[4]));
+		if (cmd.hasOption('l')) {
+			if (cmd.hasOption('s')) {
+				dataset = new TransBasedListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
+						Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
+								.getArgs()[4]));
+			} else {
+				dataset = new TransBasedBitSetDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
+						.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd.getArgs()[4]));
+			}
 		} else {
-			dataset = new BitSetDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
-					Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
-							.getArgs()[4]));
+			if (cmd.hasOption('s')) {
+				dataset = new ListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
+						Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
+								.getArgs()[4]));
+			} else {
+				dataset = new BitSetDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
+						.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd.getArgs()[4]));
+			}
 		}
 
 		long startTime = System.currentTimeMillis();

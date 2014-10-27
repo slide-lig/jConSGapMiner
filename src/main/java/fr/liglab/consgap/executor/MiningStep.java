@@ -22,6 +22,7 @@ package fr.liglab.consgap.executor;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import fr.liglab.consgap.dataset.Dataset;
 import fr.liglab.consgap.dataset.Dataset.DeadEndException;
@@ -32,7 +33,7 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 public class MiningStep {
-	static final public AtomicInteger loopCounts = new AtomicInteger();
+	static final public AtomicLong loopCounts = new AtomicLong();
 	final private Dataset dataset;
 	final private AtomicInteger extensionsIndex;
 	final private int[] extensions;
