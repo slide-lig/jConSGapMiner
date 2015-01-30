@@ -20,14 +20,13 @@
 
 package fr.liglab.consgap.collector;
 
-import gnu.trove.iterator.TIntIterator;
-
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class OrderedResultsCollector extends ResultsCollector {
 	// gets results in order of length, shorter first
-	private final List<int[]> collectedSeq;
+	private final List<String[]> collectedSeq;
 	private final TreeNode filteringTree;
 
 	// in this class, we build tree and check from the last item in the sequence
@@ -56,7 +55,11 @@ public class OrderedResultsCollector extends ResultsCollector {
 			}
 		} else {
 			insertIntoTree(this.filteringTree, fullSeq);
-			this.collectedSeq.add(fullSeq);
+			String[] rebased = new String[fullSeq.length];
+			for (int i = 0; i < fullSeq.length; i++) {
+				rebased[i] = this.rebasing[fullSeq[i]];
+			}
+			this.collectedSeq.add(rebased);
 			return EmergingStatus.NEW_EMERGING;
 		}
 	}
@@ -77,11 +80,11 @@ public class OrderedResultsCollector extends ResultsCollector {
 	 * @see fr.liglab.consgap.internals.ResultsCollector#getNonRedundant()
 	 */
 	@Override
-	public List<int[]> getNonRedundant() {
-		List<int[]> filtered = this.collectedSeq;
-		TIntIterator iter = this.emergingItems.iterator();
+	public List<String[]> getNonRedundant() {
+		List<String[]> filtered = this.collectedSeq;
+		Iterator<String> iter = this.emergingItems.iterator();
 		while (iter.hasNext()) {
-			filtered.add(new int[] { iter.next() });
+			filtered.add(new String[] { iter.next() });
 		}
 		return filtered;
 	}

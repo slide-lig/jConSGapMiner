@@ -20,11 +20,10 @@
 
 package fr.liglab.consgap.collector;
 
-import gnu.trove.iterator.TIntIterator;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 
 public class BatchFilteringResultsCollector extends ResultsCollector {
@@ -84,7 +83,7 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 		}
 		if (batchSeq != null) {
 			TreeNode newRoot = new TreeNode();
-			List<int[]> filtered = getNonRedundant(newRoot, null, batchSeq);
+			List<int[]> filtered = getNonRedundant(newRoot, batchSeq);
 			this.filteringTree = newRoot;
 			synchronized (this) {
 				this.collectedSeq.addAll(filtered);
@@ -110,16 +109,24 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 	 * @see fr.liglab.consgap.internals.ResultsCollector#getNonRedundant()
 	 */
 	@Override
-	public List<int[]> getNonRedundant() {
-		List<int[]> filtered = getNonRedundant(new TreeNode(), this.rebasing, this.collectedSeq);
-		TIntIterator iter = this.emergingItems.iterator();
+	public List<String[]> getNonRedundant() {
+		List<int[]> filtered = getNonRedundant(new TreeNode(), this.collectedSeq);
+		List<String[]> output = new ArrayList<String[]>(filtered.size() + this.emergingItems.size());
+		Iterator<String> iter = this.emergingItems.iterator();
 		while (iter.hasNext()) {
-			filtered.add(new int[] { iter.next() });
+			output.add(new String[] { iter.next() });
 		}
-		return filtered;
+		for (int[] s : filtered) {
+			String[] rebased = new String[s.length];
+			for (int i = 0; i < s.length; i++) {
+				rebased[i] = this.rebasing[s[i]];
+			}
+			output.add(rebased);
+		}
+		return output;
 	}
 
-	private static List<int[]> getNonRedundant(TreeNode rootNode, int[] rebasing, List<int[]> sequences) {
+	private static List<int[]> getNonRedundant(TreeNode rootNode, List<int[]> sequences) {
 		// sort sequences by size and then lexico
 		Collections.sort(sequences, new Comparator<int[]>() {
 
@@ -141,15 +148,7 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 		List<int[]> nonRedundant = new ArrayList<>();
 		for (int[] seq : sequences) {
 			if (recursiveSubsetCheck(rootNode, seq, seq.length - 1) < 0) {
-				if (rebasing != null) {
-					int[] rebasedSeq = new int[seq.length];
-					for (int i = 0; i < rebasedSeq.length; i++) {
-						rebasedSeq[i] = rebasing[seq[i]];
-					}
-					nonRedundant.add(rebasedSeq);
-				} else {
-					nonRedundant.add(seq);
-				}
+				nonRedundant.add(seq);
 				// insert in tree
 				insertIntoTree(rootNode, seq);
 			}

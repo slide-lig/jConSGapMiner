@@ -20,20 +20,20 @@
 
 package fr.liglab.consgap.collector;
 
-import gnu.trove.TIntCollection;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import java.util.Collection;
 import java.util.List;
 
 public abstract class ResultsCollector {
-	int[] rebasing;
-	TIntCollection emergingItems;
+	String[] rebasing;
+	Collection<String> emergingItems;
 
-	public void setRebasing(int[] rebasing) {
+	public void setRebasing(String[] rebasing) {
 		this.rebasing = rebasing;
 	}
 
-	public void setEmergingItems(TIntCollection emergingItems) {
+	public void setEmergingItems(Collection<String> emergingItems) {
 		this.emergingItems = emergingItems;
 	}
 
@@ -41,7 +41,7 @@ public abstract class ResultsCollector {
 
 	public abstract int getNbCollected();
 
-	public abstract List<int[]> getNonRedundant();
+	public abstract List<String[]> getNonRedundant();
 
 	public static enum EmergingStatus {
 		NEW_EMERGING, EMERGING_WITHOUT_EXPANSION, EMERGING_WITH_EXPANSION, NO_EMERGING_SUBSET

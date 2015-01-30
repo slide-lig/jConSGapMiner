@@ -21,7 +21,6 @@
 package fr.liglab.consgap;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
@@ -46,6 +45,9 @@ import fr.liglab.consgap.executor.MiningExecutor;
 import fr.liglab.consgap.executor.MiningStep;
 
 public class Main {
+
+	public static String separator = "\t";
+
 	public static void main(String[] args) throws IOException {
 		Options options = new Options();
 		CommandLineParser parser = new PosixParser();
@@ -60,6 +62,7 @@ public class Main {
 				"f",
 				true,
 				"Sequences filtering frequency, expressed in number of outputs. Recommended value is 100, avoids some redundant explorations.");
+		options.addOption("sep", true, "separator in the dataset files (defaults to tabulation)");
 		try {
 			CommandLine cmd = parser.parse(options, args);
 
@@ -83,6 +86,9 @@ public class Main {
 	}
 
 	private static void standalone(CommandLine cmd) throws IOException {
+		if (cmd.hasOption("sep")) {
+			Main.separator = cmd.getOptionValue("sep");
+		}
 		int nbThreads = Runtime.getRuntime().availableProcessors();
 		if (cmd.hasOption('t')) {
 			nbThreads = Math.max(1, Integer.parseInt(cmd.getOptionValue('t')));
@@ -103,12 +109,12 @@ public class Main {
 		Dataset dataset;
 		if (cmd.hasOption('l')) {
 			if (cmd.hasOption('s')) {
-				dataset = new TransBasedListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
+				dataset = new TransBasedListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
+						.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd.getArgs()[4]));
+			} else {
+				dataset = new TransBasedBitSetDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1],
 						Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd
 								.getArgs()[4]));
-			} else {
-				dataset = new TransBasedBitSetDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
-						.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd.getArgs()[4]));
 			}
 		} else {
 			if (cmd.hasOption('s')) {
@@ -124,10 +130,14 @@ public class Main {
 		long startTime = System.currentTimeMillis();
 		executor.mine(dataset);
 		long removeRedundantStart = System.currentTimeMillis();
-		List<int[]> minimalEmerging = dataset.getResultsCollector().getNonRedundant();
+		List<String[]> minimalEmerging = dataset.getResultsCollector().getNonRedundant();
+
 		if (!cmd.hasOption('b')) {
-			for (int[] seq : minimalEmerging) {
-				System.out.println(Arrays.toString(seq));
+			for (String[] seq : minimalEmerging) {
+				for (int i = 0; i < seq.length; i++) {
+					System.out.print(seq[i] + "\t");
+				}
+				System.out.println();
 			}
 		}
 		long endTime = System.currentTimeMillis();

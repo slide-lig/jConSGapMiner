@@ -20,11 +20,10 @@
 
 package fr.liglab.consgap.collector;
 
-import gnu.trove.iterator.TIntIterator;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 
 public class PostFilteringResultsCollector extends ResultsCollector {
@@ -67,7 +66,7 @@ public class PostFilteringResultsCollector extends ResultsCollector {
 	 * @see fr.liglab.consgap.internals.ResultsCollector#getNonRedundant()
 	 */
 	@Override
-	public List<int[]> getNonRedundant() {
+	public List<String[]> getNonRedundant() {
 		// sort sequences by size and then lexico
 		Collections.sort(collectedSeq, new Comparator<int[]>() {
 
@@ -86,15 +85,15 @@ public class PostFilteringResultsCollector extends ResultsCollector {
 				}
 			}
 		});
-		List<int[]> nonRedundant = new ArrayList<>();
-		TIntIterator iter = this.emergingItems.iterator();
+		List<String[]> nonRedundant = new ArrayList<>();
+		Iterator<String> iter = this.emergingItems.iterator();
 		while (iter.hasNext()) {
-			nonRedundant.add(new int[] { iter.next() });
+			nonRedundant.add(new String[] { iter.next() });
 		}
 		TreeNode rootNode = new TreeNode();
 		for (int[] seq : collectedSeq) {
 			if (!recursiveSubsetCheck(rootNode, seq, 0)) {
-				int[] rebasedSeq = new int[seq.length];
+				String[] rebasedSeq = new String[seq.length];
 				for (int i = 0; i < rebasedSeq.length; i++) {
 					rebasedSeq[i] = this.rebasing[seq[i]];
 				}

@@ -25,24 +25,25 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import fr.liglab.consgap.Main;
 import fr.liglab.consgap.collector.ResultsCollector;
 import fr.liglab.consgap.collector.ResultsCollector.EmergingStatus;
 import fr.liglab.consgap.dataset.Dataset;
-import gnu.trove.TIntCollection;
-import gnu.trove.iterator.TIntIntIterator;
+import gnu.trove.iterator.TObjectIntIterator;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntIntHashMap;
+import gnu.trove.map.TObjectIntMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.map.hash.TObjectIntHashMap;
 import gnu.trove.procedure.TIntObjectProcedure;
-import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
 
 abstract class ATransactionsBasedDataset<S> implements Dataset {
 	protected final S[] currentSeqPresencePositive;
@@ -66,31 +67,26 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 		this.sequence = new int[] {};
 		this.currentSeqPresencePositive = null;
 		this.currentSeqPresenceNegative = null;
-		final TIntIntMap posFreqCounting = new TIntIntHashMap();
+		final TObjectIntMap<String> posFreqCounting = new TObjectIntHashMap<String>();
 		int nbPositiveTransactions = 0;
 		BufferedReader br = new BufferedReader(new FileReader(positiveDataset));
 		String line;
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
 				nbPositiveTransactions++;
-				String[] sp = line.split("\\s+");
-				TIntSet uniqueItems = new TIntHashSet();
+				String[] sp = line.split(Main.separator);
+				Set<String> uniqueItems = new HashSet<String>();
 				for (String item : sp) {
-					uniqueItems.add(Integer.parseInt(item));
+					uniqueItems.add(item);
 				}
-				uniqueItems.forEach(new TIntProcedure() {
-
-					@Override
-					public boolean execute(int item) {
-						posFreqCounting.adjustOrPutValue(item, 1, 1);
-						return true;
-					}
-				});
+				for (String item : uniqueItems) {
+					posFreqCounting.adjustOrPutValue(item, 1, 1);
+				}
 			}
 		}
 		br.close();
 		// eliminate items that are infrequent in the positive dataset
-		TIntIntIterator iter = posFreqCounting.iterator();
+		TObjectIntIterator<String> iter = posFreqCounting.iterator();
 		while (iter.hasNext()) {
 			iter.advance();
 			if (iter.value() < this.posFreqLowerBound) {
@@ -98,25 +94,20 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 			}
 		}
 		// compute frequencies in the negative dataset
-		final TIntIntMap negFreqCounting = new TIntIntHashMap();
+		final TObjectIntMap<String> negFreqCounting = new TObjectIntHashMap<String>();
 		int nbNegativeTransactions = 0;
 		br = new BufferedReader(new FileReader(negativeDataset));
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
 				nbNegativeTransactions++;
-				String[] sp = line.split("\\s+");
-				TIntSet uniqueItems = new TIntHashSet();
+				String[] sp = line.split(Main.separator);
+				Set<String> uniqueItems = new HashSet<String>();
 				for (String item : sp) {
-					uniqueItems.add(Integer.parseInt(item));
+					uniqueItems.add(item);
 				}
-				uniqueItems.forEach(new TIntProcedure() {
-
-					@Override
-					public boolean execute(int item) {
-						negFreqCounting.adjustOrPutValue(item, 1, 1);
-						return true;
-					}
-				});
+				for (String item : uniqueItems) {
+					negFreqCounting.adjustOrPutValue(item, 1, 1);
+				}
 			}
 		}
 		br.close();
@@ -130,13 +121,13 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 				iter.remove();
 			}
 		}
-		TIntCollection emergingItems = new TIntArrayList(posFreqCounting.keySet());
+		Collection<String> emergingItems = new ArrayList<String>(posFreqCounting.keySet());
 		emergingItems.removeAll(negFreqCounting.keySet());
 		posFreqCounting.keySet().removeAll(emergingItems);
 		// now do a rebasing using negative dataset support then positive
 		// dataset support, we want to prioritize items with low values
 		// we have to go through Integer because of custom sort
-		Integer[] keptItems = new Integer[posFreqCounting.size()];
+		String[] keptItems = new String[posFreqCounting.size()];
 		iter = posFreqCounting.iterator();
 		int writePos = 0;
 		while (iter.hasNext()) {
@@ -144,10 +135,10 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 			keptItems[writePos] = iter.key();
 			writePos++;
 		}
-		Arrays.sort(keptItems, new Comparator<Integer>() {
+		Arrays.sort(keptItems, new Comparator<String>() {
 
 			@Override
-			public int compare(Integer o1, Integer o2) {
+			public int compare(String o1, String o2) {
 				int negSupportDiff = negFreqCounting.get(o1) - negFreqCounting.get(o2);
 				if (negSupportDiff != 0) {
 					return negSupportDiff;
@@ -161,8 +152,8 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 				}
 			}
 		});
-		TIntIntMap itemsRenaming = new TIntIntHashMap();
-		int[] rebasing = new int[keptItems.length];
+		TObjectIntMap<String> itemsRenaming = new TObjectIntHashMap<String>();
+		String[] rebasing = new String[keptItems.length];
 		for (int i = 0; i < keptItems.length; i++) {
 			itemsRenaming.put(keptItems[i], i);
 			rebasing[i] = keptItems[i];
@@ -177,9 +168,9 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 		int lineNumber = 0;
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
-				String[] sp = line.split("\\s+");
+				String[] sp = line.split(Main.separator);
 				for (int i = 0; i < sp.length; i++) {
-					int itemOldId = Integer.parseInt(sp[i]);
+					String itemOldId = sp[i];
 					if (posFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
 						transactionBuffer.add(item);
@@ -208,9 +199,9 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 		lineNumber = 0;
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
-				String[] sp = line.split("\\s+");
+				String[] sp = line.split(Main.separator);
 				for (int i = 0; i < sp.length; i++) {
-					int itemOldId = Integer.parseInt(sp[i]);
+					String itemOldId = sp[i];
 					if (negFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
 						S[] bsArray = this.itemPresenceMapNegative.get(item);
@@ -233,6 +224,7 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 		this.resultsCollector = collector;
 		this.resultsCollector.setRebasing(rebasing);
 		this.resultsCollector.setEmergingItems(emergingItems);
+		System.err.println(this.itemPresenceMapPositive.size() + " frequent non emerging items in dataset");
 	}
 
 	protected abstract S initEmptyStructure();
