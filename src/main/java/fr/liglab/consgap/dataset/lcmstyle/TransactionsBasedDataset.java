@@ -69,6 +69,7 @@ public class TransactionsBasedDataset implements Dataset {
 	private final int[] possibleExtensions;
 	protected final int[] originalPosTransactionsMapping;
 	protected final int[] originalNegTransactionsMapping;
+	private static int interestingCase;
 
 	public TransactionsBasedDataset(ResultsCollector collector, String positiveDataset, String negativeDataset,
 			int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
@@ -169,6 +170,7 @@ public class TransactionsBasedDataset implements Dataset {
 			itemsRenaming.put(keptItems[i], i);
 			rebasing[i] = keptItems[i];
 		}
+		interestingCase = itemsRenaming.get("7246");
 
 		// we have all of our items and their new names, read datasets one last
 		// time and make BitSets
@@ -391,8 +393,13 @@ public class TransactionsBasedDataset implements Dataset {
 		default:
 			break;
 		}
-
+		if (this.sequence.length == 0 && expansionItem == interestingCase) {
+			System.err.println("check counts");
+		}
 		if (this.checkBackscan(expandedPosPositions, expandedNegPositions)) {
+			if (this.sequence.length == 0 && expansionItem == interestingCase) {
+				System.err.println("cut because of backscan");
+			}
 			throw new BackScanException();
 		}
 
