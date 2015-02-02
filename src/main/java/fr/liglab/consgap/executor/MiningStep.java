@@ -30,6 +30,7 @@ import fr.liglab.consgap.dataset.Dataset.DeadEndException;
 import fr.liglab.consgap.dataset.Dataset.EmergingExpansionException;
 import fr.liglab.consgap.dataset.Dataset.EmergingParentException;
 import fr.liglab.consgap.dataset.Dataset.InfrequentException;
+import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 
 public class MiningStep {
 	static final public AtomicLong loopCounts = new AtomicLong();
