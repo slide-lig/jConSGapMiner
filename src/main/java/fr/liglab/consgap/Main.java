@@ -35,7 +35,7 @@ import fr.liglab.consgap.collector.OrderedResultsCollector;
 import fr.liglab.consgap.collector.PostFilteringResultsCollector;
 import fr.liglab.consgap.collector.ResultsCollector;
 import fr.liglab.consgap.dataset.Dataset;
-import fr.liglab.consgap.dataset.lcmstyle.TransBasedListDataset;
+import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 import fr.liglab.consgap.executor.BreadthFirstExecutor;
 import fr.liglab.consgap.executor.DepthFirstExecutor;
 import fr.liglab.consgap.executor.MiningExecutor;
@@ -102,7 +102,7 @@ public class Main {
 			}
 		}
 		Dataset dataset;
-		dataset = new TransBasedListDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
+		dataset = new TransactionsBasedDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
 				.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd.getArgs()[4]));
 
 		long startTime = System.currentTimeMillis();

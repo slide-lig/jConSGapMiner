@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import fr.liglab.consgap.dataset.Dataset;
+import fr.liglab.consgap.dataset.Dataset.BackScanException;
 import fr.liglab.consgap.dataset.Dataset.DeadEndException;
 import fr.liglab.consgap.dataset.Dataset.EmergingExpansionException;
 import fr.liglab.consgap.dataset.Dataset.EmergingParentException;
@@ -53,7 +54,7 @@ public class MiningStep {
 				extDataset = this.dataset.expand(extension);
 			} catch (EmergingParentException e) {
 				return null;
-			} catch (EmergingExpansionException | DeadEndException | InfrequentException e) {
+			} catch (BackScanException | EmergingExpansionException | DeadEndException | InfrequentException e) {
 			}
 			if (extDataset != null) {
 				// if (extDataset.getSequence().length > 3) {
@@ -87,7 +88,7 @@ public class MiningStep {
 				extDataset = dataset.expand(extension);
 			} catch (EmergingParentException e) {
 				return;
-			} catch (EmergingExpansionException | DeadEndException | InfrequentException e) {
+			} catch (BackScanException | EmergingExpansionException | DeadEndException | InfrequentException e) {
 			}
 			if (extDataset != null) {
 				mineInThread(extDataset);

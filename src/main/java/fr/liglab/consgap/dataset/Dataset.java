@@ -21,7 +21,6 @@
 package fr.liglab.consgap.dataset;
 
 import fr.liglab.consgap.collector.ResultsCollector;
-import gnu.trove.set.TIntSet;
 
 public interface Dataset {
 
@@ -29,8 +28,8 @@ public interface Dataset {
 
 	public int[] getExtensions();
 
-	public Dataset expand(final int expansionItem)
-			throws EmergingParentException, EmergingExpansionException, InfrequentException, DeadEndException;
+	public Dataset expand(final int expansionItem) throws EmergingParentException, EmergingExpansionException,
+			InfrequentException, DeadEndException, BackScanException;
 
 	public int[] getSequence();
 
@@ -59,6 +58,15 @@ public interface Dataset {
 	};
 
 	public static class EmergingParentException extends Exception {
+
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
+	}
+
+	public static class BackScanException extends Exception {
 
 		/**
 		 * 
