@@ -29,22 +29,18 @@ import fr.liglab.consgap.dataset.Dataset.DeadEndException;
 import fr.liglab.consgap.dataset.Dataset.EmergingExpansionException;
 import fr.liglab.consgap.dataset.Dataset.EmergingParentException;
 import fr.liglab.consgap.dataset.Dataset.InfrequentException;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
 
 public class MiningStep {
 	static final public AtomicLong loopCounts = new AtomicLong();
 	final private Dataset dataset;
 	final private AtomicInteger extensionsIndex;
 	final private int[] extensions;
-	final private TIntSet deniedSiblingsExtensions;
 
 	public MiningStep(Dataset dataset) {
 		this.dataset = dataset;
 		this.extensions = dataset.getExtensions();
 		Arrays.sort(this.extensions);
 		this.extensionsIndex = new AtomicInteger();
-		this.deniedSiblingsExtensions = new TIntHashSet();
 	}
 
 	public MiningStep next() {
@@ -54,14 +50,10 @@ public class MiningStep {
 			final int extension = extensions[index];
 			Dataset extDataset = null;
 			try {
-				extDataset = this.dataset.expand(extension, deniedSiblingsExtensions);
+				extDataset = this.dataset.expand(extension);
 			} catch (EmergingParentException e) {
 				return null;
-			} catch (EmergingExpansionException e) {
-				synchronized (deniedSiblingsExtensions) {
-					deniedSiblingsExtensions.add(extension);
-				}
-			} catch (DeadEndException | InfrequentException e) {
+			} catch (EmergingExpansionException | DeadEndException | InfrequentException e) {
 			}
 			if (extDataset != null) {
 				// if (extDataset.getSequence().length > 3) {
@@ -87,20 +79,15 @@ public class MiningStep {
 	private static void mineInThread(Dataset dataset) {
 		final int[] extensions = dataset.getExtensions();
 		Arrays.sort(extensions);
-		final TIntSet deniedSiblingsExtensions = new TIntHashSet();
 		for (int index = 0; index < extensions.length; index++) {
 			loopCounts.incrementAndGet();
 			final int extension = extensions[index];
 			Dataset extDataset = null;
 			try {
-				extDataset = dataset.expand(extension, deniedSiblingsExtensions);
+				extDataset = dataset.expand(extension);
 			} catch (EmergingParentException e) {
 				return;
-			} catch (EmergingExpansionException e) {
-				synchronized (deniedSiblingsExtensions) {
-					deniedSiblingsExtensions.add(extension);
-				}
-			} catch (DeadEndException | InfrequentException e) {
+			} catch (EmergingExpansionException | DeadEndException | InfrequentException e) {
 			}
 			if (extDataset != null) {
 				mineInThread(extDataset);

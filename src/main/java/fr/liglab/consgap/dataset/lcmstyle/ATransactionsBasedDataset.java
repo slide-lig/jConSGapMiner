@@ -43,7 +43,6 @@ import gnu.trove.map.TObjectIntMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.map.hash.TObjectIntHashMap;
 import gnu.trove.procedure.TIntObjectProcedure;
-import gnu.trove.set.TIntSet;
 
 abstract class ATransactionsBasedDataset<S> implements Dataset {
 	protected final S[] currentSeqPresencePositive;
@@ -261,8 +260,8 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 	abstract protected int[] computePossibleExtensions();
 
 	@Override
-	final public ATransactionsBasedDataset<S> expand(final int expansionItem, final TIntSet deniedSiblingsExtensions)
-			throws EmergingParentException, EmergingExpansionException, InfrequentException, DeadEndException {
+	final public ATransactionsBasedDataset<S> expand(final int expansionItem) throws EmergingParentException,
+			EmergingExpansionException, InfrequentException, DeadEndException {
 		// compute support count in positive dataset
 		final S[] expansionItemPosPositions = this.itemPresenceMapPositive.get(expansionItem);
 		final S[] expandedPosPositions = this.initStructureArray(expansionItemPosPositions.length);
@@ -393,10 +392,6 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 
 		});
 
-		synchronized (deniedSiblingsExtensions) {
-			newItemPresenceMapPositive.keySet().removeAll(deniedSiblingsExtensions);
-		}
-
 		// if there are potential future expansions
 		if (!newItemPresenceMapPositive.isEmpty()) {
 			// we prepare the new presence list of items in negative
@@ -430,10 +425,6 @@ abstract class ATransactionsBasedDataset<S> implements Dataset {
 				}
 
 			});
-
-			synchronized (deniedSiblingsExtensions) {
-				newItemPresenceMapNegative.keySet().removeAll(deniedSiblingsExtensions);
-			}
 
 			// we can now shift expanded positions to fill the null entries
 			final S[] expandedPosPositionsCompacted = this.initStructureArray(finalPosSupport);

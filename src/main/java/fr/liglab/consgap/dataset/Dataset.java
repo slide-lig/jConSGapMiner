@@ -29,7 +29,7 @@ public interface Dataset {
 
 	public int[] getExtensions();
 
-	public Dataset expand(final int expansionItem, final TIntSet deniedSiblingsExtensions)
+	public Dataset expand(final int expansionItem)
 			throws EmergingParentException, EmergingExpansionException, InfrequentException, DeadEndException;
 
 	public int[] getSequence();
