@@ -283,11 +283,11 @@ public class TransactionsBasedDataset implements Dataset {
 		for (int i = 0; i < expansionItemPosPositions.length; i++) {
 			if (expansionItemPosPositions[i] != null) {
 				if (currentSeqPresencePositive != null) {
-					expandedPosPositions.set(i, this.findMatchingPosition(i, true, expansionItemPosPositions[i]));
+					expandedPosPositions.add(this.findMatchingPosition(i, true, expansionItemPosPositions[i]));
 				} else {
 					// starter item, sequence currently empty
 					final List<PositionAndProvenance> lp = new ArrayList<>(expansionItemPosPositions[i].size());
-					expandedPosPositions.set(i, lp);
+					expandedPosPositions.add(lp);
 					expansionItemPosPositions[i].forEach(new TIntProcedure() {
 
 						@Override
@@ -314,7 +314,7 @@ public class TransactionsBasedDataset implements Dataset {
 					// extension items based on support
 					throw new InfrequentException();
 				}
-				expandedPosPositions.set(i, null);
+				expandedPosPositions.add(null);
 			}
 		}
 		// if we reach this point, the expanded sequence is frequent in the
@@ -336,11 +336,11 @@ public class TransactionsBasedDataset implements Dataset {
 			for (int i = 0; !emerging && i < expansionItemNegPositions.length; i++) {
 				if (expansionItemNegPositions[i] != null) {
 					if (currentSeqPresenceNegative != null) {
-						expandedNegPositions.set(i, this.findMatchingPosition(i, false, expansionItemNegPositions[i]));
+						expandedNegPositions.add(this.findMatchingPosition(i, false, expansionItemNegPositions[i]));
 					} else {
 						// starter item, sequence currently empty
 						final List<PositionAndProvenance> lp = new ArrayList<>(expansionItemNegPositions[i].size());
-						expandedNegPositions.set(i, lp);
+						expandedNegPositions.add(lp);
 						expansionItemNegPositions[i].forEach(new TIntProcedure() {
 
 							@Override
@@ -365,7 +365,7 @@ public class TransactionsBasedDataset implements Dataset {
 						// support of expansion in positive will be too low
 						emerging = true;
 					}
-					expandedNegPositions.set(i, null);
+					expandedNegPositions.add(null);
 				}
 			}
 		}
@@ -472,7 +472,7 @@ public class TransactionsBasedDataset implements Dataset {
 			int writeIndex = 0;
 			for (int i = 0; i < expandedPosPositions.size(); i++) {
 				if (expandedPosPositions.get(i) != null) {
-					expandedPosPositionsCompacted.set(writeIndex, expandedPosPositions.get(i));
+					expandedPosPositionsCompacted.add(expandedPosPositions.get(i));
 					if (this.originalPosTransactionsMapping == null) {
 						expandedPosTransactionsMapping[writeIndex] = i;
 					} else {
@@ -486,7 +486,7 @@ public class TransactionsBasedDataset implements Dataset {
 			writeIndex = 0;
 			for (int i = 0; i < expandedNegPositions.size(); i++) {
 				if (expandedNegPositions.get(i) != null) {
-					expandedNegPositionsCompacted.set(writeIndex, expandedNegPositions.get(i));
+					expandedNegPositionsCompacted.add(expandedNegPositions.get(i));
 					if (this.originalNegTransactionsMapping == null) {
 						expandedNegTransactionsMapping[writeIndex] = i;
 					} else {
@@ -642,12 +642,14 @@ public class TransactionsBasedDataset implements Dataset {
 						int backspaceBound;
 						int[] transaction;
 						if (p.getProvenanceLastIndex() == -1) {
-							backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 							transaction = this.positiveTransactions.get(i);
+							backspaceBound = Math
+									.min(p.getPosition() + this.getGapConstraint() + 1, transaction.length);
 						} else {
-							backspaceBound = this.currentSeqPresencePositive.get(i).get(p.getProvenanceLastIndex() - 1)
-									.getPosition();
 							transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
+							backspaceBound = Math.min(
+									this.currentSeqPresencePositive.get(i).get(p.getProvenanceLastIndex() - 1)
+											.getPosition(), transaction.length);
 						}
 						for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 							inter.add(transaction[pos]);
@@ -700,12 +702,14 @@ public class TransactionsBasedDataset implements Dataset {
 						int backspaceBound;
 						int[] transaction;
 						if (p.getProvenanceLastIndex() == -1) {
-							backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 							transaction = this.negativeTransactions.get(i);
+							backspaceBound = Math
+									.min(p.getPosition() + this.getGapConstraint() + 1, transaction.length);
 						} else {
-							backspaceBound = this.currentSeqPresenceNegative.get(i).get(p.getProvenanceLastIndex() - 1)
-									.getPosition();
 							transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[i]);
+							backspaceBound = Math.min(
+									this.currentSeqPresenceNegative.get(i).get(p.getProvenanceLastIndex() - 1)
+											.getPosition(), transaction.length);
 						}
 						for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 							inter.add(transaction[pos]);
@@ -716,12 +720,15 @@ public class TransactionsBasedDataset implements Dataset {
 							int backspaceBound;
 							int[] transaction;
 							if (p.getProvenanceLastIndex() == -1) {
-								backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 								transaction = this.negativeTransactions.get(i);
+								backspaceBound = Math.min(p.getPosition() + this.getGapConstraint() + 1,
+										transaction.length);
+
 							} else {
-								backspaceBound = this.currentSeqPresenceNegative.get(i)
-										.get(p.getProvenanceLastIndex() - 1).getPosition();
 								transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[i]);
+								backspaceBound = Math.min(
+										this.currentSeqPresenceNegative.get(i).get(p.getProvenanceLastIndex() - 1)
+												.getPosition(), transaction.length);
 							}
 							for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 								present.add(transaction[pos]);
@@ -775,13 +782,14 @@ public class TransactionsBasedDataset implements Dataset {
 						int backspaceBound;
 						int[] transaction;
 						if (p.getProvenanceLastIndex() == -1) {
-							backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 							transaction = this.positiveTransactions.get(tidInter.getTransId());
+							backspaceBound = Math
+									.min(p.getPosition() + this.getGapConstraint() + 1, transaction.length);
 						} else {
-							backspaceBound = this.currentSeqPresencePositive.get(tidInter.getTransId())
-									.get(p.getProvenanceLastIndex() - 1).getPosition();
 							transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[tidInter
 									.getTransId()]);
+							backspaceBound = Math.min(p.getCorrespondingList().get(p.getProvenanceLastIndex() - 1)
+									.getPosition(), transaction.length);
 						}
 						for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 							inter.add(transaction[pos]);
@@ -792,13 +800,14 @@ public class TransactionsBasedDataset implements Dataset {
 							int backspaceBound;
 							int[] transaction;
 							if (p.getProvenanceLastIndex() == -1) {
-								backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 								transaction = this.positiveTransactions.get(tidInter.getTransId());
+								backspaceBound = Math.min(p.getPosition() + this.getGapConstraint() + 1,
+										transaction.length);
 							} else {
-								backspaceBound = this.currentSeqPresencePositive.get(tidInter.getTransId())
-										.get(p.getProvenanceLastIndex() - 1).getPosition();
 								transaction = this.positiveTransactions
 										.get(this.originalPosTransactionsMapping[tidInter.getTransId()]);
+								backspaceBound = Math.min(p.getCorrespondingList().get(p.getProvenanceLastIndex() - 1)
+										.getPosition(), transaction.length);
 							}
 							for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 								present.add(transaction[pos]);
@@ -840,13 +849,14 @@ public class TransactionsBasedDataset implements Dataset {
 						int backspaceBound;
 						int[] transaction;
 						if (p.getProvenanceLastIndex() == -1) {
-							backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 							transaction = this.negativeTransactions.get(tidInter.getTransId());
+							backspaceBound = Math
+									.min(p.getPosition() + this.getGapConstraint() + 1, transaction.length);
 						} else {
-							backspaceBound = this.currentSeqPresenceNegative.get(tidInter.getTransId())
-									.get(p.getProvenanceLastIndex() - 1).getPosition();
 							transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[tidInter
 									.getTransId()]);
+							backspaceBound = Math.min(p.getCorrespondingList().get(p.getProvenanceLastIndex() - 1)
+									.getPosition(), transaction.length);
 						}
 						for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 							inter.add(transaction[pos]);
@@ -857,13 +867,15 @@ public class TransactionsBasedDataset implements Dataset {
 							int backspaceBound;
 							int[] transaction;
 							if (p.getProvenanceLastIndex() == -1) {
-								backspaceBound = p.getPosition() + this.getGapConstraint() + 1;
 								transaction = this.negativeTransactions.get(tidInter.getTransId());
+								backspaceBound = Math.min(p.getPosition() + this.getGapConstraint() + 1,
+										transaction.length);
 							} else {
-								backspaceBound = this.currentSeqPresenceNegative.get(tidInter.getTransId())
-										.get(p.getProvenanceLastIndex() - 1).getPosition();
+
 								transaction = this.negativeTransactions
 										.get(this.originalNegTransactionsMapping[tidInter.getTransId()]);
+								backspaceBound = Math.min(p.getCorrespondingList().get(p.getProvenanceLastIndex() - 1)
+										.getPosition(), transaction.length);
 							}
 							for (int pos = p.getPosition() + 1; pos < backspaceBound; pos++) {
 								present.add(transaction[pos]);
