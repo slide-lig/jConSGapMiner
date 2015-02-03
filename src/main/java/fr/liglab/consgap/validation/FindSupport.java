@@ -1,5 +1,8 @@
 package fr.liglab.consgap.validation;
 
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
@@ -10,9 +13,9 @@ import java.util.Set;
 
 public class FindSupport {
 	public static boolean match(int[] pattern, int[] transaction, int gap) {
-		for (int i = 0; i < transaction.length; i++) {
-			if (transaction[i] == pattern[0]) {
-				if (match(pattern, transaction, gap, 1, i + 1)) {
+		for (int i = pattern.length - 1; i < transaction.length; i++) {
+			if (transaction[i] == pattern[pattern.length - 1]) {
+				if (match(pattern, transaction, gap, pattern.length - 2, i - 1)) {
 					return true;
 				}
 			}
@@ -21,12 +24,12 @@ public class FindSupport {
 	}
 
 	public static boolean match(int[] pattern, int[] transaction, int gap, int patternIndex, int transactionIndex) {
-		if (patternIndex == pattern.length) {
+		if (patternIndex == -1) {
 			return true;
 		}
-		for (int i = transactionIndex; i < transactionIndex + 1 + gap && i < transaction.length; i++) {
+		for (int i = transactionIndex; i >= transactionIndex - gap && i >= 0; i--) {
 			if (transaction[i] == pattern[patternIndex]) {
-				if (match(pattern, transaction, gap, patternIndex + 1, i + 1)) {
+				if (match(pattern, transaction, gap, patternIndex - 1, i - 1)) {
 					return true;
 				}
 			}
@@ -36,11 +39,11 @@ public class FindSupport {
 
 	public static List<int[]> matchPos(int[] pattern, int[] transaction, int gap) {
 		List<int[]> matchingPositions = new ArrayList<>();
-		for (int i = 0; i < transaction.length; i++) {
-			if (transaction[i] == pattern[0]) {
+		for (int i = transaction.length - 1; i >= 0; i--) {
+			if (transaction[i] == pattern[pattern.length - 1]) {
 				int[] posSoFar = new int[pattern.length];
-				posSoFar[0] = i;
-				matchPos(pattern, transaction, gap, 1, i + 1, posSoFar, matchingPositions);
+				posSoFar[pattern.length - 1] = i;
+				matchPos(pattern, transaction, gap, pattern.length - 2, i - 1, posSoFar, matchingPositions);
 			}
 		}
 		return matchingPositions;
@@ -48,20 +51,21 @@ public class FindSupport {
 
 	public static void matchPos(int[] pattern, int[] transaction, int gap, int patternIndex, int transactionIndex,
 			int[] posSoFar, List<int[]> res) {
-		if (patternIndex == pattern.length) {
+		if (patternIndex == -1) {
 			res.add(posSoFar);
 			return;
 		}
-		for (int i = transactionIndex; i < transactionIndex + 1 + gap && i < transaction.length; i++) {
+		for (int i = transactionIndex; i >= transactionIndex - gap && i >= 0; i--) {
 			if (transaction[i] == pattern[patternIndex]) {
 				int[] newPos = Arrays.copyOf(posSoFar, posSoFar.length);
 				newPos[patternIndex] = i;
-				matchPos(pattern, transaction, gap, patternIndex + 1, i + 1, newPos, res);
+				matchPos(pattern, transaction, gap, patternIndex - 1, i - 1, newPos, res);
 			}
 		}
 	}
 
 	public static List<Set<Integer>> getBackSpace(List<List<int[]>> positions, List<int[]> dataset, int gap) {
+		// TODO fix from right to left
 		List<Set<Integer>> res = new ArrayList<>();
 		for (int i = 0; i < positions.size(); i++) {
 			if (positions.get(i) != null) {
@@ -70,12 +74,12 @@ public class FindSupport {
 						for (int j = 0; j < pos.length; j++) {
 							int startPos;
 							int endPos;
-							if (j == 0) {
-								startPos = Math.max(0, pos[0] - gap);
-								endPos = pos[0];
+							if (j == pos.length - 1) {
+								startPos = pos[pos.length - 1] + 1;
+								endPos = Math.min(dataset.get(i).length, pos[pos.length - 1] + gap + 2);
 							} else {
-								startPos = pos[j - 1] + 1;
-								endPos = pos[j];
+								startPos = pos[j] + 1;
+								endPos = pos[j + 1];
 							}
 							Set<Integer> s = new HashSet<>();
 							for (int k = startPos; k < endPos; k++) {
@@ -88,12 +92,12 @@ public class FindSupport {
 							Set<Integer> inter = new HashSet<>();
 							int startPos;
 							int endPos;
-							if (j == 0) {
-								startPos = Math.max(0, pos[0] - gap);
-								endPos = pos[0];
+							if (j == pos.length - 1) {
+								startPos = pos[pos.length - 1] + 1;
+								endPos = Math.min(dataset.get(i).length, pos[pos.length - 1] + gap + 2);
 							} else {
-								startPos = pos[j - 1] + 1;
-								endPos = pos[j];
+								startPos = pos[j] + 1;
+								endPos = pos[j + 1];
 							}
 							for (int k = startPos; k < endPos; k++) {
 								inter.add(dataset.get(i)[k]);
@@ -108,39 +112,52 @@ public class FindSupport {
 	}
 
 	public static void main(String[] args) throws Exception {
-		int[] seq = { 7972, 8337 };
-		int gap = 1;
+		int[] seq = { /* 7070, 7937, 7938, */7939, 7940, 7942, 7944, 4694, 4695 };
+		int gap = 2;
 		String datasetFile = "/Users/vleroy/Workspace/emerging/Dall_as_nums.txt_tiny";
 		while (true) {
 			BufferedReader br = new BufferedReader(new FileReader(datasetFile));
 			String line;
+			int lineId = 1;
 			int support = 0;
 			List<int[]> dataset = new ArrayList<>();
 			List<List<int[]>> matchingPos = new ArrayList<>();
 			while ((line = br.readLine()) != null) {
 				String[] sp = line.split("\\s");
-				int[] transaction = new int[sp.length];
+				TIntList transactionl = new TIntArrayList(sp.length);
 				for (int i = 0; i < sp.length; i++) {
-					transaction[i] = Integer.parseInt(sp[i]);
+					transactionl.add(Integer.parseInt(sp[i]));
 				}
+				int[] transaction = transactionl.toArray();
 				if (match(seq, transaction, gap)) {
 					support++;
 					matchingPos.add(matchPos(seq, transaction, gap));
+					System.out.println("line " + lineId + " " + matchingPos.get(matchingPos.size() - 1).size()
+							+ " occurences");
+					System.out.println("batch of occurences");
+					for (int[] pos : matchingPos.get(matchingPos.size() - 1)) {
+						System.out.println("pos: " + Arrays.toString(pos));
+						for (int i = pos[0]; i <= pos[pos.length - 1] + gap + 1; i++) {
+							System.out.print(transaction[i] + " ");
+						}
+						System.out.println();
+					}
 				} else {
 					matchingPos.add(null);
 				}
 				dataset.add(transaction);
+				lineId++;
 			}
 			br.close();
 			System.out.println(Arrays.toString(seq) + " support=" + support);
 			List<Set<Integer>> backSpaces = getBackSpace(matchingPos, dataset, gap);
-			System.out.println(backSpaces);
 			int additions = 0;
 			for (Set<Integer> s : backSpaces) {
 				if (!s.isEmpty()) {
 					additions++;
 				}
 			}
+			System.out.println("additions " + additions);
 			if (additions == 0) {
 				break;
 			} else {
@@ -155,6 +172,8 @@ public class FindSupport {
 				}
 				seq = newSeq;
 			}
+			System.out.println(backSpaces);
+			break;
 		}
 
 	}

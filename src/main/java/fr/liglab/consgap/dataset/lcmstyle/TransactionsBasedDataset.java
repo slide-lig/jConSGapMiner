@@ -69,6 +69,9 @@ public class TransactionsBasedDataset implements Dataset {
 	private final int[] possibleExtensions;
 	protected final int[] originalPosTransactionsMapping;
 	protected final int[] originalNegTransactionsMapping;
+	public static int[] interestingPattern;
+	public static int interestingExtension;
+	public static boolean isInteresting;
 
 	// public static int[] interestingCase;
 	// private static boolean trace = false;
@@ -169,7 +172,8 @@ public class TransactionsBasedDataset implements Dataset {
 		TObjectIntMap<String> itemsRenaming = new TObjectIntHashMap<String>();
 		String[] rebasing = new String[keptItems.length];
 		for (int i = 0; i < keptItems.length; i++) {
-			itemsRenaming.put(keptItems[i], i);
+			itemsRenaming.put(keptItems[i], Integer.parseInt(keptItems[i]));
+			// itemsRenaming.put(keptItems[i], i);
 			rebasing[i] = keptItems[i];
 		}
 		// interestingCase = new int[2];
@@ -218,7 +222,7 @@ public class TransactionsBasedDataset implements Dataset {
 				String[] sp = line.split(Main.separator);
 				for (int i = 0; i < sp.length; i++) {
 					String itemOldId = sp[i];
-					if (negFreqCounting.containsKey(itemOldId)) {
+					if (posFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
 						transactionBuffer.add(item);
 						TIntList[] bsArray = this.itemPresenceMapNegative.get(item);
@@ -230,6 +234,8 @@ public class TransactionsBasedDataset implements Dataset {
 							bsArray[lineNumber] = new TIntArrayList();
 						}
 						bsArray[lineNumber].insert(0, i);
+					} else {
+						transactionBuffer.add(-1);
 					}
 				}
 				this.negativeTransactions.add(transactionBuffer.toArray());
@@ -245,6 +251,14 @@ public class TransactionsBasedDataset implements Dataset {
 		this.resultsCollector.setRebasing(rebasing);
 		this.resultsCollector.setEmergingItems(emergingItems);
 		System.err.println(this.itemPresenceMapPositive.size() + " frequent non emerging items in dataset");
+		int[] originalInterestingPattern = { 7071, 7936, 8323, 8146, 8324, 8325, 8326, 7070, 7070, 7937, 7938, 7939,
+				7940, 7942, 7944, 4694, 4695 };
+		interestingPattern = new int[originalInterestingPattern.length];
+		for (int i = 0; i < originalInterestingPattern.length; i++) {
+			interestingPattern[i] = itemsRenaming.get("" + originalInterestingPattern[i]);
+		}
+		interestingExtension = itemsRenaming.get("7090");
+		System.err.println("147 est en fait " + rebasing[147]);
 	}
 
 	protected TransactionsBasedDataset(TransactionsBasedDataset parentDataset, int expansionItem,
@@ -268,6 +282,19 @@ public class TransactionsBasedDataset implements Dataset {
 		this.originalPosTransactionsMapping = expandedPosTransactionsMapping;
 		this.originalNegTransactionsMapping = expandedNegTransactionsMapping;
 		this.possibleExtensions = this.computePossibleExtensions();
+		int shift = 11;
+		isInteresting = false;
+		if (this.sequence.length == interestingPattern.length - shift) {
+			isInteresting = true;
+			for (int i = 0; isInteresting && i < this.sequence.length; i++) {
+				if (this.sequence[i] != interestingPattern[i + shift]) {
+					isInteresting = false;
+				}
+			}
+		}
+		if (isInteresting) {
+			System.out.println("ho");
+		}
 	}
 
 	@Override
@@ -278,6 +305,23 @@ public class TransactionsBasedDataset implements Dataset {
 	@Override
 	final public TransactionsBasedDataset expand(final int expansionItem) throws EmergingParentException,
 			EmergingExpansionException, InfrequentException, DeadEndException, BackScanException {
+		isInteresting = false;
+		int shift = 12;
+		if (this.sequence.length == interestingPattern.length - shift) {
+			isInteresting = true;
+			for (int i = 0; isInteresting && i < this.sequence.length; i++) {
+				if (this.sequence[i] != interestingPattern[i + shift]) {
+					isInteresting = false;
+				}
+			}
+		}
+		if (isInteresting) {
+			if (shift == 0) {
+				isInteresting = expansionItem == interestingExtension;
+			} else {
+				isInteresting = expansionItem == interestingPattern[shift - 1];
+			}
+		}
 		// compute support count in positive dataset
 		final TIntList[] expansionItemPosPositions = this.itemPresenceMapPositive.get(expansionItem);
 		final List<List<PositionAndProvenance>> expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(
@@ -375,6 +419,9 @@ public class TransactionsBasedDataset implements Dataset {
 					expandedNegPositions.add(null);
 				}
 			}
+		}
+		if (isInteresting) {
+			System.out.println("break");
 		}
 
 		EmergingStatus es;
@@ -630,7 +677,7 @@ public class TransactionsBasedDataset implements Dataset {
 		}
 		int backspaceBound;
 		if (p.getProvenanceLastIndex() == -1) {
-			backspaceBound = Math.min(p.getPosition() + gapConstraint + 1, transaction.length);
+			backspaceBound = Math.min(p.getPosition() + gapConstraint + 2, transaction.length);
 		} else {
 			backspaceBound = Math.min(previousItemPos.get(p.getProvenanceLastIndex() - 1).getPosition(),
 					transaction.length);
@@ -745,6 +792,9 @@ public class TransactionsBasedDataset implements Dataset {
 			}
 		}
 		if (!inter.isEmpty()) {
+			if (isInteresting) {
+				System.out.println("bs1: " + inter);
+			}
 			return true;
 		} else if ((prevItemPosOccurences == null || prevItemPosOccurences.isEmpty())
 				&& (prevItemNegOccurences == null || prevItemNegOccurences.isEmpty())) {
@@ -755,6 +805,9 @@ public class TransactionsBasedDataset implements Dataset {
 	}
 
 	private boolean recCheckBackscan(List<TransIdAndInterval> posOccurences, List<TransIdAndInterval> negOccurences) {
+		if (isInteresting) {
+			System.out.println();
+		}
 		TIntSet inter = null;
 		List<TransIdAndInterval> prevItemPosOccurences = null;
 		if (!posOccurences.isEmpty()) {
@@ -854,6 +907,9 @@ public class TransactionsBasedDataset implements Dataset {
 			}
 		}
 		if (!inter.isEmpty()) {
+			if (isInteresting) {
+				System.out.println("bs2: " + inter);
+			}
 			return true;
 		} else if ((prevItemPosOccurences == null || prevItemPosOccurences.isEmpty())
 				&& (prevItemNegOccurences == null || prevItemNegOccurences.isEmpty())) {
@@ -861,5 +917,10 @@ public class TransactionsBasedDataset implements Dataset {
 		} else {
 			return recCheckBackscan(prevItemPosOccurences, prevItemNegOccurences);
 		}
+	}
+
+	@Override
+	public String toString() {
+		return "TransactionsBasedDataset [sequence=" + Arrays.toString(sequence) + "]";
 	}
 }
