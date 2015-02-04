@@ -172,13 +172,10 @@ public class TransactionsBasedDataset implements Dataset {
 		TObjectIntMap<String> itemsRenaming = new TObjectIntHashMap<String>();
 		String[] rebasing = new String[keptItems.length];
 		for (int i = 0; i < keptItems.length; i++) {
-			itemsRenaming.put(keptItems[i], Integer.parseInt(keptItems[i]));
-			// itemsRenaming.put(keptItems[i], i);
+			// itemsRenaming.put(keptItems[i], Integer.parseInt(keptItems[i]));
+			itemsRenaming.put(keptItems[i], i);
 			rebasing[i] = keptItems[i];
 		}
-		// interestingCase = new int[2];
-		// interestingCase[0] = itemsRenaming.get("7972");
-		// interestingCase[1] = itemsRenaming.get("8337");
 		// we have all of our items and their new names, read datasets one last
 		// time and make BitSets
 		this.positiveTransactions = new ArrayList<int[]>(nbPositiveTransactions);
@@ -251,14 +248,12 @@ public class TransactionsBasedDataset implements Dataset {
 		this.resultsCollector.setRebasing(rebasing);
 		this.resultsCollector.setEmergingItems(emergingItems);
 		System.err.println(this.itemPresenceMapPositive.size() + " frequent non emerging items in dataset");
-		int[] originalInterestingPattern = { 7071, 7936, 8323, 8146, 8324, 8325, 8326, 7070, 7070, 7937, 7938, 7939,
-				7940, 7942, 7944, 4694, 4695 };
+		int[] originalInterestingPattern = { 8203, 7071 };
 		interestingPattern = new int[originalInterestingPattern.length];
 		for (int i = 0; i < originalInterestingPattern.length; i++) {
 			interestingPattern[i] = itemsRenaming.get("" + originalInterestingPattern[i]);
 		}
-		interestingExtension = itemsRenaming.get("7090");
-		System.err.println("147 est en fait " + rebasing[147]);
+		interestingExtension = itemsRenaming.get("8242");
 	}
 
 	protected TransactionsBasedDataset(TransactionsBasedDataset parentDataset, int expansionItem,
@@ -284,17 +279,17 @@ public class TransactionsBasedDataset implements Dataset {
 		this.possibleExtensions = this.computePossibleExtensions();
 		int shift = 11;
 		isInteresting = false;
-		if (this.sequence.length == interestingPattern.length - shift) {
-			isInteresting = true;
-			for (int i = 0; isInteresting && i < this.sequence.length; i++) {
-				if (this.sequence[i] != interestingPattern[i + shift]) {
-					isInteresting = false;
-				}
-			}
-		}
-		if (isInteresting) {
-			System.out.println("ho");
-		}
+		// if (this.sequence.length == interestingPattern.length - shift) {
+		// isInteresting = true;
+		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
+		// if (this.sequence[i] != interestingPattern[i + shift]) {
+		// isInteresting = false;
+		// }
+		// }
+		// }
+		// if (isInteresting) {
+		// System.out.println("ho");
+		// }
 	}
 
 	@Override
@@ -306,22 +301,22 @@ public class TransactionsBasedDataset implements Dataset {
 	final public TransactionsBasedDataset expand(final int expansionItem) throws EmergingParentException,
 			EmergingExpansionException, InfrequentException, DeadEndException, BackScanException {
 		isInteresting = false;
-		int shift = 12;
-		if (this.sequence.length == interestingPattern.length - shift) {
-			isInteresting = true;
-			for (int i = 0; isInteresting && i < this.sequence.length; i++) {
-				if (this.sequence[i] != interestingPattern[i + shift]) {
-					isInteresting = false;
-				}
-			}
-		}
-		if (isInteresting) {
-			if (shift == 0) {
-				isInteresting = expansionItem == interestingExtension;
-			} else {
-				isInteresting = expansionItem == interestingPattern[shift - 1];
-			}
-		}
+		int shift = 0;
+		// if (this.sequence.length == interestingPattern.length - shift) {
+		// isInteresting = true;
+		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
+		// if (this.sequence[i] != interestingPattern[i + shift]) {
+		// isInteresting = false;
+		// }
+		// }
+		// }
+		// if (isInteresting) {
+		// if (shift == 0) {
+		// isInteresting = expansionItem == interestingExtension;
+		// } else {
+		// isInteresting = expansionItem == interestingPattern[shift - 1];
+		// }
+		// }
 		// compute support count in positive dataset
 		final TIntList[] expansionItemPosPositions = this.itemPresenceMapPositive.get(expansionItem);
 		final List<List<PositionAndProvenance>> expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(
@@ -420,9 +415,9 @@ public class TransactionsBasedDataset implements Dataset {
 				}
 			}
 		}
-		if (isInteresting) {
-			System.out.println("break");
-		}
+		// if (isInteresting) {
+		// System.out.println("look");
+		// }
 
 		EmergingStatus es;
 		// System.out.println("emerging " + emerging);

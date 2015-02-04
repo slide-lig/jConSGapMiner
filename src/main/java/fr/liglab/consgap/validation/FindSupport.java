@@ -112,7 +112,7 @@ public class FindSupport {
 	}
 
 	public static void main(String[] args) throws Exception {
-		int[] seq = { /* 7070, 7937, 7938, */7939, 7940, 7942, 7944, 4694, 4695 };
+		int[] seq = { 8242, 8203 };
 		int gap = 2;
 		String datasetFile = "/Users/vleroy/Workspace/emerging/Dall_as_nums.txt_tiny";
 		while (true) {
@@ -134,13 +134,13 @@ public class FindSupport {
 					matchingPos.add(matchPos(seq, transaction, gap));
 					System.out.println("line " + lineId + " " + matchingPos.get(matchingPos.size() - 1).size()
 							+ " occurences");
-					System.out.println("batch of occurences");
+					// System.out.println("batch of occurences");
 					for (int[] pos : matchingPos.get(matchingPos.size() - 1)) {
-						System.out.println("pos: " + Arrays.toString(pos));
+						// System.out.println("pos: " + Arrays.toString(pos));
 						for (int i = pos[0]; i <= pos[pos.length - 1] + gap + 1; i++) {
-							System.out.print(transaction[i] + " ");
+							// System.out.print(transaction[i] + " ");
 						}
-						System.out.println();
+						// System.out.println();
 					}
 				} else {
 					matchingPos.add(null);
@@ -164,16 +164,15 @@ public class FindSupport {
 				int[] newSeq = new int[seq.length + additions];
 				int writeDelta = 0;
 				for (int i = 0; i < seq.length; i++) {
-					if (!backSpaces.get(i).isEmpty()) {
-						newSeq[i + writeDelta] = backSpaces.get(i).iterator().next();
-						writeDelta++;
-					}
 					newSeq[i + writeDelta] = seq[i];
+					if (!backSpaces.get(i).isEmpty()) {
+						writeDelta++;
+						newSeq[i + writeDelta] = backSpaces.get(i).iterator().next();
+					}
 				}
 				seq = newSeq;
 			}
 			System.out.println(backSpaces);
-			break;
 		}
 
 	}
