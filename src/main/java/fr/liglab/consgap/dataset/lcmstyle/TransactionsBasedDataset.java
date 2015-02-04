@@ -277,7 +277,7 @@ public class TransactionsBasedDataset implements Dataset {
 		this.originalPosTransactionsMapping = expandedPosTransactionsMapping;
 		this.originalNegTransactionsMapping = expandedNegTransactionsMapping;
 		this.possibleExtensions = this.computePossibleExtensions();
-		int shift = 11;
+		// int shift = 11;
 		isInteresting = false;
 		// if (this.sequence.length == interestingPattern.length - shift) {
 		// isInteresting = true;
@@ -301,7 +301,7 @@ public class TransactionsBasedDataset implements Dataset {
 	final public TransactionsBasedDataset expand(final int expansionItem) throws EmergingParentException,
 			EmergingExpansionException, InfrequentException, DeadEndException, BackScanException {
 		isInteresting = false;
-		int shift = 0;
+		// int shift = 0;
 		// if (this.sequence.length == interestingPattern.length - shift) {
 		// isInteresting = true;
 		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
@@ -559,7 +559,7 @@ public class TransactionsBasedDataset implements Dataset {
 		} else {
 			seqPos = this.currentSeqPresenceNegative.get(transIndex);
 		}
-		List<PositionAndProvenance> res = null;
+		ArrayList<PositionAndProvenance> res = null;
 		int currentSeqIndex = 0;
 		// Iterator<PositionAndProvenance> currentSeqIter = seqPos.iterator();
 		TIntIterator expansionIterator = extensionItemPos.iterator();
@@ -590,6 +590,9 @@ public class TransactionsBasedDataset implements Dataset {
 				}
 				res.add(new PositionAndProvenance(expansionPos, provenanceFirstIndex, provenanceLastIndex, seqPos));
 			}
+		}
+		if (res != null) {
+			res.trimToSize();
 		}
 		return res;
 	}
@@ -661,32 +664,14 @@ public class TransactionsBasedDataset implements Dataset {
 		return this.gapConstraint;
 	}
 
-	private static TIntSet getTransactionBackSpace(PositionAndProvenance p, List<int[]> transactions,
-			int transactionIndex, int[] transactionsMapping, List<PositionAndProvenance> previousItemPos,
-			int gapConstraint) {
-		int[] transaction;
-		if (transactionsMapping == null) {
-			transaction = transactions.get(transactionIndex);
-		} else {
-			transaction = transactions.get(transactionsMapping[transactionIndex]);
+	private static TIntSet getTransactionBackSpace(int[] transaction, int position, int gap) {
+		int backspaceBound = Math.min(position + gap + 2, transaction.length);
+		int startPos = position + 1;
+		TIntSet out = new TIntHashSet();
+		for (int pos = startPos; pos < backspaceBound; pos++) {
+			out.add(transaction[pos]);
 		}
-		int backspaceBound;
-		if (p.getProvenanceLastIndex() == -1) {
-			backspaceBound = Math.min(p.getPosition() + gapConstraint + 2, transaction.length);
-		} else {
-			backspaceBound = Math.min(previousItemPos.get(p.getProvenanceLastIndex() - 1).getPosition(),
-					transaction.length);
-		}
-		int startPos = p.getPosition() + 1;
-		if (startPos < backspaceBound) {
-			TIntSet out = new TIntHashSet();
-			for (int pos = startPos; pos < backspaceBound; pos++) {
-				out.add(transaction[pos]);
-			}
-			return out;
-		} else {
-			return null;
-		}
+		return out;
 	}
 
 	// true if there is a backspace that is present in all occurrences of the
@@ -694,224 +679,65 @@ public class TransactionsBasedDataset implements Dataset {
 	private boolean checkBackscan(List<List<PositionAndProvenance>> expandedPosPositions,
 			List<List<PositionAndProvenance>> expandedNegPositions) {
 		TIntSet inter = null;
-		List<TransIdAndInterval> prevItemPosOccurences = new ArrayList<>();
+		int[] lastIndexPerDepth = new int[this.sequence.length];
 		for (int i = 0; i < expandedPosPositions.size(); i++) {
-			if (expandedPosPositions.get(i) != null) {
-				TransIdAndInterval workInProgress = null;
-				for (PositionAndProvenance p : expandedPosPositions.get(i)) {
-					if (p.getProvenanceLastIndex() != -1) {
-						if (workInProgress == null) {
-							workInProgress = new TransIdAndInterval(i, p.getProvenanceFirstIndex(),
-									p.getProvenanceLastIndex(), p.getCorrespondingList());
-						} else {
-							if (!workInProgress.merge(p)) {
-								prevItemPosOccurences.add(workInProgress);
-								workInProgress = new TransIdAndInterval(i, p.getProvenanceFirstIndex(),
-										p.getProvenanceLastIndex(), p.getCorrespondingList());
-							}
-						}
-					}
-					if (inter == null) {
-						inter = getTransactionBackSpace(p, this.positiveTransactions, i,
-								this.originalPosTransactionsMapping, (this.currentSeqPresencePositive == null) ? null
-										: this.currentSeqPresencePositive.get(i), this.getGapConstraint());
-						if (inter == null) {
-							inter = new TIntHashSet();
-						}
-					} else {
-						if (!inter.isEmpty()) {
-							TIntSet present = getTransactionBackSpace(
-									p,
-									this.positiveTransactions,
-									i,
-									this.originalPosTransactionsMapping,
-									(this.currentSeqPresencePositive == null) ? null : this.currentSeqPresencePositive
-											.get(i), this.getGapConstraint());
-							if (present == null) {
-								inter.clear();
-							} else {
-								inter.retainAll(present);
-							}
-						}
-					}
+			List<PositionAndProvenance> lPos = expandedPosPositions.get(i);
+			if (lPos != null) {
+				int[] transaction;
+				if (this.originalPosTransactionsMapping != null) {
+					transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
+				} else {
+					transaction = this.positiveTransactions.get(i);
 				}
-				if (workInProgress != null) {
-					prevItemPosOccurences.add(workInProgress);
+				for (PositionAndProvenance pos : lPos) {
+					inter = this.recCheckBackscan(pos, transaction, lastIndexPerDepth, 0, inter);
+				}
+				if (inter.isEmpty()) {
+					return false;
 				}
 			}
 		}
-		List<TransIdAndInterval> prevItemNegOccurences = new ArrayList<>();
 		for (int i = 0; i < expandedNegPositions.size(); i++) {
-			if (expandedNegPositions.get(i) != null) {
-				TransIdAndInterval workInProgress = null;
-				for (PositionAndProvenance p : expandedNegPositions.get(i)) {
-					if (p.getProvenanceLastIndex() != -1) {
-						if (workInProgress == null) {
-							workInProgress = new TransIdAndInterval(i, p.getProvenanceFirstIndex(),
-									p.getProvenanceLastIndex(), p.getCorrespondingList());
-						} else {
-							if (!workInProgress.merge(p)) {
-								prevItemNegOccurences.add(workInProgress);
-								workInProgress = new TransIdAndInterval(i, p.getProvenanceFirstIndex(),
-										p.getProvenanceLastIndex(), p.getCorrespondingList());
-							}
-						}
-					}
-					if (inter == null) {
-						inter = getTransactionBackSpace(p, this.negativeTransactions, i,
-								this.originalNegTransactionsMapping, (this.currentSeqPresenceNegative == null) ? null
-										: this.currentSeqPresenceNegative.get(i), this.getGapConstraint());
-						if (inter == null) {
-							inter = new TIntHashSet();
-						}
-					} else {
-						if (!inter.isEmpty()) {
-							TIntSet present = getTransactionBackSpace(
-									p,
-									this.negativeTransactions,
-									i,
-									this.originalNegTransactionsMapping,
-									(this.currentSeqPresenceNegative == null) ? null : this.currentSeqPresenceNegative
-											.get(i), this.getGapConstraint());
-							if (present == null) {
-								inter.clear();
-							} else {
-								inter.retainAll(present);
-							}
-						}
-					}
+			List<PositionAndProvenance> lPos = expandedNegPositions.get(i);
+			if (lPos != null) {
+				int[] transaction;
+				if (this.originalNegTransactionsMapping != null) {
+					transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[i]);
+				} else {
+					transaction = this.negativeTransactions.get(i);
 				}
-				if (workInProgress != null) {
-					prevItemNegOccurences.add(workInProgress);
+				for (PositionAndProvenance pos : lPos) {
+					inter = this.recCheckBackscan(pos, transaction, lastIndexPerDepth, 0, inter);
+				}
+				if (inter.isEmpty()) {
+					return false;
 				}
 			}
 		}
-		if (!inter.isEmpty()) {
-			if (isInteresting) {
-				System.out.println("bs1: " + inter);
-			}
-			return true;
-		} else if ((prevItemPosOccurences == null || prevItemPosOccurences.isEmpty())
-				&& (prevItemNegOccurences == null || prevItemNegOccurences.isEmpty())) {
-			return false;
-		} else {
-			return recCheckBackscan(prevItemPosOccurences, prevItemNegOccurences);
-		}
+		return true;
 	}
 
-	private boolean recCheckBackscan(List<TransIdAndInterval> posOccurences, List<TransIdAndInterval> negOccurences) {
-		if (isInteresting) {
-			System.out.println();
-		}
-		TIntSet inter = null;
-		List<TransIdAndInterval> prevItemPosOccurences = null;
-		if (!posOccurences.isEmpty()) {
-			prevItemPosOccurences = new ArrayList<>();
-			TransIdAndInterval workInProgress = null;
-			int transactionInProgress = -1;
-			for (TransIdAndInterval tidInter : posOccurences) {
-				for (PositionAndProvenance p : tidInter.getCorrespondingList().subList(
-						tidInter.getProvenanceFirstIndex(), tidInter.getProvenanceLastIndex())) {
-					if (p.getProvenanceLastIndex() != -1) {
-						if (workInProgress == null) {
-							workInProgress = new TransIdAndInterval(tidInter.getTransId(), p.getProvenanceFirstIndex(),
-									p.getProvenanceLastIndex(), p.getCorrespondingList());
-							transactionInProgress = tidInter.getTransId();
-						} else {
-							if (transactionInProgress != tidInter.getTransId() || !workInProgress.merge(p)) {
-								prevItemPosOccurences.add(workInProgress);
-								workInProgress = new TransIdAndInterval(tidInter.getTransId(),
-										p.getProvenanceFirstIndex(), p.getProvenanceLastIndex(),
-										p.getCorrespondingList());
-								transactionInProgress = tidInter.getTransId();
-							}
-						}
-					}
-					if (inter == null) {
-						inter = getTransactionBackSpace(p, this.positiveTransactions, tidInter.getTransId(),
-								this.originalPosTransactionsMapping, p.getCorrespondingList(), this.getGapConstraint());
-						if (inter == null) {
-							inter = new TIntHashSet();
-						}
-					} else {
-						if (!inter.isEmpty()) {
-							TIntSet present = getTransactionBackSpace(p, this.positiveTransactions,
-									tidInter.getTransId(), this.originalPosTransactionsMapping,
-									p.getCorrespondingList(), this.getGapConstraint());
-							if (present == null) {
-								inter.clear();
-							} else {
-								inter.retainAll(present);
-							}
-						}
-					}
-				}
+	private TIntSet recCheckBackscan(PositionAndProvenance pos, int[] transaction, int[] lastIndexPerDepth, int depth,
+			TIntSet inter) {
+		if (pos.getProvenanceFirstIndex() == -1) {
+			TIntSet content = getTransactionBackSpace(transaction, pos.getPosition(), this.getGapConstraint());
+			if (inter == null) {
+				return content;
+			} else {
+				inter.retainAll(content);
 			}
-			if (workInProgress != null) {
-				prevItemPosOccurences.add(workInProgress);
-			}
-		}
-		List<TransIdAndInterval> prevItemNegOccurences = null;
-		if (!negOccurences.isEmpty()) {
-			prevItemNegOccurences = new ArrayList<>();
-			TransIdAndInterval workInProgress = null;
-			int transactionInProgress = -1;
-			for (TransIdAndInterval tidInter : negOccurences) {
-				for (PositionAndProvenance p : tidInter.getCorrespondingList().subList(
-						tidInter.getProvenanceFirstIndex(), tidInter.getProvenanceLastIndex())) {
-					if (p.getProvenanceLastIndex() != -1) {
-						if (workInProgress == null) {
-							workInProgress = new TransIdAndInterval(tidInter.getTransId(), p.getProvenanceFirstIndex(),
-									p.getProvenanceLastIndex(), p.getCorrespondingList());
-							transactionInProgress = tidInter.getTransId();
-						} else {
-							if (transactionInProgress != tidInter.getTransId() || !workInProgress.merge(p)) {
-								prevItemNegOccurences.add(workInProgress);
-								workInProgress = new TransIdAndInterval(tidInter.getTransId(),
-										p.getProvenanceFirstIndex(), p.getProvenanceLastIndex(),
-										p.getCorrespondingList());
-								transactionInProgress = tidInter.getTransId();
-							}
-						}
-					}
-					if (inter == null) {
-						inter = getTransactionBackSpace(p, this.negativeTransactions, tidInter.getTransId(),
-								this.originalNegTransactionsMapping,
-								(p.getProvenanceLastIndex() == -1) ? null : p.getCorrespondingList(),
-								this.getGapConstraint());
-						if (inter == null) {
-							inter = new TIntHashSet();
-						}
-					} else {
-						if (!inter.isEmpty()) {
-							TIntSet present = getTransactionBackSpace(p, this.negativeTransactions,
-									tidInter.getTransId(), this.originalNegTransactionsMapping,
-									(p.getProvenanceLastIndex() == -1) ? null : p.getCorrespondingList(),
-									this.getGapConstraint());
-							if (present == null) {
-								inter.clear();
-							} else {
-								inter.retainAll(present);
-							}
-						}
-					}
-				}
-			}
-			if (workInProgress != null) {
-				prevItemNegOccurences.add(workInProgress);
-			}
-		}
-		if (!inter.isEmpty()) {
-			if (isInteresting) {
-				System.out.println("bs2: " + inter);
-			}
-			return true;
-		} else if ((prevItemPosOccurences == null || prevItemPosOccurences.isEmpty())
-				&& (prevItemNegOccurences == null || prevItemNegOccurences.isEmpty())) {
-			return false;
 		} else {
-			return recCheckBackscan(prevItemPosOccurences, prevItemNegOccurences);
+			for (int i = Math.max(lastIndexPerDepth[depth], pos.getProvenanceFirstIndex()); i < pos
+					.getProvenanceLastIndex(); i++) {
+				PositionAndProvenance newPos = pos.getCorrespondingList().get(i);
+				inter = recCheckBackscan(newPos, transaction, lastIndexPerDepth, depth + 1, inter);
+				if (inter.isEmpty()) {
+					return inter;
+				}
+			}
+			lastIndexPerDepth[depth] = pos.getProvenanceLastIndex();
 		}
+		return inter;
 	}
 
 	@Override
