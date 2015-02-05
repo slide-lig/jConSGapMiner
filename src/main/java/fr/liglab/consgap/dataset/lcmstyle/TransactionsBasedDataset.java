@@ -298,8 +298,7 @@ public class TransactionsBasedDataset implements Dataset {
 	}
 
 	@Override
-	final public TransactionsBasedDataset expand(final int expansionItem) throws EmergingParentException,
-			EmergingExpansionException, InfrequentException, DeadEndException, BackScanException {
+	final public ExpandStatus expand(final int expansionItem, Dataset[] expandedDataset) {
 		isInteresting = false;
 		// int shift = 0;
 		// if (this.sequence.length == interestingPattern.length - shift) {
@@ -430,18 +429,18 @@ public class TransactionsBasedDataset implements Dataset {
 
 		switch (es) {
 		case EMERGING_WITHOUT_EXPANSION:
-			throw new EmergingExpansionException();
+			return ExpandStatus.EMERGING_PARENT;
 		case EMERGING_WITH_EXPANSION:
-			throw new EmergingExpansionException();
+			return ExpandStatus.EMERGING;
 		case NEW_EMERGING:
-			throw new EmergingExpansionException();
+			return ExpandStatus.EMERGING;
 		case NO_EMERGING_SUBSET:
 			break;
 		default:
 			break;
 		}
 		if (this.checkBackscan(expandedPosPositions, expandedNegPositions)) {
-			throw new BackScanException();
+			return ExpandStatus.BACKSCAN;
 		}
 		// if we reach this point we should have expandedNegPositions and
 		// expandedNegFirstPosition != null
@@ -543,11 +542,12 @@ public class TransactionsBasedDataset implements Dataset {
 			}
 
 			// we have all we need, instantiate dataset
-			return this.inistantiateDataset(expansionItem, expandedPosPositionsCompacted,
+			expandedDataset[0] = this.inistantiateDataset(expansionItem, expandedPosPositionsCompacted,
 					expandedNegPositionsCompacted, newItemPresenceMapPositive, newItemPresenceMapNegative,
 					expandedPosTransactionsMapping, expandedNegTransactionsMapping);
+			return ExpandStatus.OK;
 		} else {
-			throw new DeadEndException();
+			return ExpandStatus.DEAD_END;
 		}
 	}
 

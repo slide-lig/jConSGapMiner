@@ -25,12 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import fr.liglab.consgap.dataset.Dataset;
-import fr.liglab.consgap.dataset.Dataset.BackScanException;
-import fr.liglab.consgap.dataset.Dataset.DeadEndException;
-import fr.liglab.consgap.dataset.Dataset.EmergingExpansionException;
-import fr.liglab.consgap.dataset.Dataset.EmergingParentException;
-import fr.liglab.consgap.dataset.Dataset.InfrequentException;
-import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 
 public class MiningStep {
 	static final public AtomicLong loopCounts = new AtomicLong();
@@ -46,23 +40,28 @@ public class MiningStep {
 	}
 
 	public MiningStep next() {
+		Dataset[] expansionOutput = new Dataset[1];
 		for (int index = this.extensionsIndex.getAndIncrement(); index < extensions.length; index = this.extensionsIndex
 				.getAndIncrement()) {
 			loopCounts.incrementAndGet();
 			final int extension = extensions[index];
-			Dataset extDataset = null;
-			try {
-				extDataset = this.dataset.expand(extension);
-			} catch (EmergingParentException e) {
-				return null;
-			} catch (BackScanException | EmergingExpansionException | DeadEndException | InfrequentException e) {
-			}
-			if (extDataset != null) {
-				// if (extDataset.getSequence().length > 3) {
-				// mineInThread(extDataset);
-				// } else {
-				return new MiningStep(extDataset);
-				// }
+			expansionOutput[0] = null;
+			switch (this.dataset.expand(extension, expansionOutput)) {
+			case BACKSCAN:
+				break;
+			case DEAD_END:
+				break;
+			case EMERGING:
+				break;
+			case EMERGING_PARENT:
+				// TODO in theory here we return
+				break;
+			case INFREQUENT:
+				break;
+			case OK:
+				return new MiningStep(expansionOutput[0]);
+			default:
+				System.err.println("not supposed to be here, expansion status unknown");
 			}
 		}
 		return null;
@@ -78,22 +77,23 @@ public class MiningStep {
 				+ this.extensions.length;
 	}
 
-	private static void mineInThread(Dataset dataset) {
-		final int[] extensions = dataset.getExtensions();
-		Arrays.sort(extensions);
-		for (int index = 0; index < extensions.length; index++) {
-			loopCounts.incrementAndGet();
-			final int extension = extensions[index];
-			Dataset extDataset = null;
-			try {
-				extDataset = dataset.expand(extension);
-			} catch (EmergingParentException e) {
-				return;
-			} catch (BackScanException | EmergingExpansionException | DeadEndException | InfrequentException e) {
-			}
-			if (extDataset != null) {
-				mineInThread(extDataset);
-			}
-		}
-	}
+	// private static void mineInThread(Dataset dataset) {
+	// final int[] extensions = dataset.getExtensions();
+	// Arrays.sort(extensions);
+	// for (int index = 0; index < extensions.length; index++) {
+	// loopCounts.incrementAndGet();
+	// final int extension = extensions[index];
+	// Dataset extDataset = null;
+	// try {
+	// extDataset = dataset.expand(extension);
+	// } catch (EmergingParentException e) {
+	// return;
+	// } catch (BackScanException | EmergingExpansionException |
+	// DeadEndException | InfrequentException e) {
+	// }
+	// if (extDataset != null) {
+	// mineInThread(extDataset);
+	// }
+	// }
+	// }
 }

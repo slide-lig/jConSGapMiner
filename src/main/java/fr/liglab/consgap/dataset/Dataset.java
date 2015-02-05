@@ -24,54 +24,15 @@ import fr.liglab.consgap.collector.ResultsCollector;
 
 public interface Dataset {
 
+	public static enum ExpandStatus {
+		EMERGING_PARENT, EMERGING, INFREQUENT, DEAD_END, BACKSCAN, OK
+	}
+
 	public ResultsCollector getResultsCollector();
 
 	public int[] getExtensions();
 
-	public Dataset expand(final int expansionItem) throws EmergingParentException, EmergingExpansionException,
-			InfrequentException, DeadEndException, BackScanException;
+	public ExpandStatus expand(final int expansionItem, Dataset[] expandedDataset);
 
 	public int[] getSequence();
-
-	public static class InfrequentException extends Exception {
-
-		/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-	};
-
-	public static class DeadEndException extends Exception {
-
-		/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-	};
-
-	public static class EmergingExpansionException extends Exception {
-
-		/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-	};
-
-	public static class EmergingParentException extends Exception {
-
-		/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-
-	}
-
-	public static class BackScanException extends Exception {
-
-		/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-
-	}
 }
