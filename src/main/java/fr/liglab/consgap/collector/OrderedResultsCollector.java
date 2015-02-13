@@ -64,6 +64,23 @@ public class OrderedResultsCollector extends ResultsCollector {
 		}
 	}
 
+	@Override
+	public synchronized EmergingStatus hasPotential(int[] sequence, int expansionItem) {
+		int[] fullSeq = new int[sequence.length + 1];
+		System.arraycopy(sequence, 0, fullSeq, 1, sequence.length);
+		fullSeq[0] = expansionItem;
+		int lastPos = recursiveSubsetCheck(this.filteringTree, fullSeq, fullSeq.length - 1);
+		if (lastPos >= 0) {
+			if (lastPos == 0) {
+				return EmergingStatus.EMERGING_WITH_EXPANSION;
+			} else {
+				return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
+			}
+		} else {
+			return EmergingStatus.NO_EMERGING_SUBSET;
+		}
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -119,5 +136,10 @@ public class OrderedResultsCollector extends ResultsCollector {
 			}
 			currentNode = nextNode;
 		}
+	}
+
+	@Override
+	public void setPrefixFilter(PrefixCollector prefixFilter) {
+		throw new UnsupportedOperationException();
 	}
 }

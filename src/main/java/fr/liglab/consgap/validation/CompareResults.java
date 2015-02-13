@@ -9,6 +9,7 @@ public class CompareResults {
 	public static void main(String[] args) throws Exception {
 		String refFile = "/Users/vleroy/Workspace/emerging/emergseqs_gap2.txt";
 		String compFile = "/Users/vleroy/Workspace/emerging/emergeseq_gap2-new.txt";
+		boolean strict = true;
 		List<List<Integer>> compRes = new ArrayList<>();
 		BufferedReader br = new BufferedReader(new FileReader(compFile));
 		String line;
@@ -34,15 +35,27 @@ public class CompareResults {
 			}
 			boolean found = false;
 			for (List<Integer> comp : compRes) {
-				if (comp.size() >= pattern.size()) {
-					int index = 0;
-					for (int i = 0; i < comp.size(); i++) {
-						if (comp.get(i).equals(pattern.get(index))) {
-							index++;
+				if (strict) {
+					if (comp.size() == pattern.size()) {
+						found = true;
+						for (int i = 0; i < comp.size(); i++) {
+							if (!comp.get(i).equals(pattern.get(i))) {
+								found = false;
+								break;
+							}
 						}
-						if (index == pattern.size()) {
-							found = true;
-							break;
+					}
+				} else {
+					if (comp.size() >= pattern.size()) {
+						int index = 0;
+						for (int i = 0; i < comp.size(); i++) {
+							if (comp.get(i).equals(pattern.get(index))) {
+								index++;
+							}
+							if (index == pattern.size()) {
+								found = true;
+								break;
+							}
 						}
 					}
 				}

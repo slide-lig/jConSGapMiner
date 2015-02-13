@@ -32,7 +32,9 @@ import org.apache.commons.cli.PosixParser;
 
 import fr.liglab.consgap.collector.BatchFilteringResultsCollector;
 import fr.liglab.consgap.collector.OrderedResultsCollector;
+import fr.liglab.consgap.collector.PostFilteringPrefixCollector;
 import fr.liglab.consgap.collector.PostFilteringResultsCollector;
+import fr.liglab.consgap.collector.PrefixCollector;
 import fr.liglab.consgap.collector.ResultsCollector;
 import fr.liglab.consgap.dataset.Dataset;
 import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
@@ -51,8 +53,9 @@ public class Main {
 
 		options.addOption("b", false, "Benchmark mode : sequences are not outputted at all");
 		options.addOption("h", false, "Show help");
-		options.addOption("w", false, "Use breadth first exploration instead of depth first. Usually less efficient.");
+		options.addOption("w", false, "Use breadth first exploration instead of depth first. Usually less efficient");
 		options.addOption("t", true, "How many threads will be launched (defaults to your machine's processors count)");
+		options.addOption("p", false, "Do pruning based on the prefix of the sequence");
 		options.addOption(
 				"f",
 				true,
@@ -101,10 +104,20 @@ public class Main {
 				collector = new PostFilteringResultsCollector();
 			}
 		}
+		PrefixCollector prefixCollector = null;
+		if (cmd.hasOption('p')) {
+			prefixCollector = new PostFilteringPrefixCollector();
+		}
 		Dataset dataset;
-		dataset = new TransactionsBasedDataset(collector, cmd.getArgs()[0], cmd.getArgs()[1], Integer.parseInt(cmd
-				.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]), Integer.parseInt(cmd.getArgs()[4]));
-
+		dataset = new TransactionsBasedDataset(collector, prefixCollector, cmd.getArgs()[0], cmd.getArgs()[1],
+				Integer.parseInt(cmd.getArgs()[2]), Integer.parseInt(cmd.getArgs()[3]),
+				Integer.parseInt(cmd.getArgs()[4]));
+		// useful to give yourkit time to attach
+		// try {
+		// Thread.sleep(5000);
+		// } catch (InterruptedException e) {
+		// e.printStackTrace();
+		// }
 		long startTime = System.currentTimeMillis();
 		executor.mine(dataset);
 		long removeRedundantStart = System.currentTimeMillis();

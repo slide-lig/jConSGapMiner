@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import fr.liglab.consgap.Main;
+import fr.liglab.consgap.collector.PrefixCollector;
 import fr.liglab.consgap.collector.ResultsCollector;
 import fr.liglab.consgap.collector.ResultsCollector.EmergingStatus;
 import fr.liglab.consgap.dataset.Dataset;
@@ -42,12 +44,9 @@ import gnu.trove.iterator.TObjectIntIterator;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntIntMap;
-import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.TObjectIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.map.hash.TObjectIntHashMap;
-import gnu.trove.procedure.TIntObjectProcedure;
 import gnu.trove.procedure.TIntProcedure;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
@@ -59,25 +58,27 @@ public class TransactionsBasedDataset implements Dataset {
 	protected final List<List<PositionAndProvenance>> currentSeqPresenceNegative;
 	protected final List<int[]> positiveTransactions;
 	protected final List<int[]> negativeTransactions;
-	protected final TIntObjectMap<TIntList[]> itemPresenceMapPositive;
-	private final TIntObjectMap<TIntList[]> itemPresenceMapNegative;
+	protected final TIntList[][] itemPresenceMapPositive;
+	private final TIntList[][] itemPresenceMapNegative;
 	protected final int posFreqLowerBound;// >=
 	private final int negFreqUpperBound;// <=
 	private final int gapConstraint;
 	private final int[] sequence;
 	private final ResultsCollector resultsCollector;
+	private final PrefixCollector prefixCollector;
 	private final int[] possibleExtensions;
 	protected final int[] originalPosTransactionsMapping;
 	protected final int[] originalNegTransactionsMapping;
-	public static int[] interestingPattern;
-	public static int interestingExtension;
-	public static boolean isInteresting;
+
+	// public static int[] interestingPattern;
+	// public static int interestingExtension;
+	// public static boolean isInteresting;
 
 	// public static int[] interestingCase;
 	// private static boolean trace = false;
 
-	public TransactionsBasedDataset(ResultsCollector collector, String positiveDataset, String negativeDataset,
-			int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
+	public TransactionsBasedDataset(ResultsCollector collector, PrefixCollector prefCollector, String positiveDataset,
+			String negativeDataset, int posFreqLowerBound, int negFreqUpperBound, int gapConstraint) throws IOException {
 		this.posFreqLowerBound = posFreqLowerBound;
 		this.negFreqUpperBound = negFreqUpperBound;
 		this.gapConstraint = gapConstraint;
@@ -180,7 +181,7 @@ public class TransactionsBasedDataset implements Dataset {
 		// time and make BitSets
 		this.positiveTransactions = new ArrayList<int[]>(nbPositiveTransactions);
 		TIntList transactionBuffer = new TIntArrayList(10000);
-		this.itemPresenceMapPositive = new TIntObjectHashMap<>(posFreqCounting.size());
+		this.itemPresenceMapPositive = new TIntList[keptItems.length][nbPositiveTransactions];
 		br = new BufferedReader(new FileReader(positiveDataset));
 		int lineNumber = 0;
 		while ((line = br.readLine()) != null) {
@@ -191,10 +192,10 @@ public class TransactionsBasedDataset implements Dataset {
 					if (posFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
 						transactionBuffer.add(item);
-						TIntList[] bsArray = this.itemPresenceMapPositive.get(item);
+						TIntList[] bsArray = this.itemPresenceMapPositive[item];
 						if (bsArray == null) {
 							bsArray = new TIntList[nbPositiveTransactions];
-							this.itemPresenceMapPositive.put(item, bsArray);
+							this.itemPresenceMapPositive[item] = bsArray;
 						}
 						if (bsArray[lineNumber] == null) {
 							bsArray[lineNumber] = new TIntArrayList();
@@ -211,7 +212,7 @@ public class TransactionsBasedDataset implements Dataset {
 		}
 		br.close();
 		this.negativeTransactions = new ArrayList<int[]>(nbNegativeTransactions);
-		this.itemPresenceMapNegative = new TIntObjectHashMap<>(negFreqCounting.size());
+		this.itemPresenceMapNegative = new TIntList[keptItems.length][nbNegativeTransactions];
 		br = new BufferedReader(new FileReader(negativeDataset));
 		lineNumber = 0;
 		while ((line = br.readLine()) != null) {
@@ -222,10 +223,10 @@ public class TransactionsBasedDataset implements Dataset {
 					if (posFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
 						transactionBuffer.add(item);
-						TIntList[] bsArray = this.itemPresenceMapNegative.get(item);
+						TIntList[] bsArray = this.itemPresenceMapNegative[item];
 						if (bsArray == null) {
 							bsArray = new TIntList[nbNegativeTransactions];
-							this.itemPresenceMapNegative.put(item, bsArray);
+							this.itemPresenceMapNegative[item] = bsArray;
 						}
 						if (bsArray[lineNumber] == null) {
 							bsArray[lineNumber] = new TIntArrayList();
@@ -241,26 +242,35 @@ public class TransactionsBasedDataset implements Dataset {
 			}
 		}
 		br.close();
-		this.possibleExtensions = this.itemPresenceMapPositive.keys();
+		this.possibleExtensions = new int[keptItems.length];
+		for (int i = 0; i < possibleExtensions.length; i++) {
+			possibleExtensions[i] = i;
+		}
 		this.originalPosTransactionsMapping = null;
 		this.originalNegTransactionsMapping = null;
 		this.resultsCollector = collector;
+		this.prefixCollector = prefCollector;
 		this.resultsCollector.setRebasing(rebasing);
 		this.resultsCollector.setEmergingItems(emergingItems);
-		System.err.println(this.itemPresenceMapPositive.size() + " frequent non emerging items in dataset");
-		int[] originalInterestingPattern = { 8203, 7071 };
-		interestingPattern = new int[originalInterestingPattern.length];
-		for (int i = 0; i < originalInterestingPattern.length; i++) {
-			interestingPattern[i] = itemsRenaming.get("" + originalInterestingPattern[i]);
+		if (this.prefixCollector != null) {
+			this.resultsCollector.setPrefixFilter(this.prefixCollector);
 		}
-		interestingExtension = itemsRenaming.get("8242");
+		System.out.println(possibleExtensions.length + " frequent non emerging items in dataset and "
+				+ emergingItems.size() + " emerging items");
+		// int[] originalInterestingPattern = { 7226, 7209 };
+		// interestingPattern = new int[originalInterestingPattern.length];
+		// for (int i = 0; i < originalInterestingPattern.length; i++) {
+		// interestingPattern[i] = itemsRenaming.get("" +
+		// originalInterestingPattern[i]);
+		// }
+		// interestingExtension = itemsRenaming.get("6688");
+		// System.out.println("130 is " + rebasing[130]);
 	}
 
 	protected TransactionsBasedDataset(TransactionsBasedDataset parentDataset, int expansionItem,
 			List<List<PositionAndProvenance>> expandedPosPositionsCompacted,
-			List<List<PositionAndProvenance>> expandedNegPositionsCompacted,
-			TIntObjectMap<TIntList[]> newItemPresenceMapPositive, TIntObjectMap<TIntList[]> newItemPresenceMapNegative,
-			int[] expandedPosTransactionsMapping, int[] expandedNegTransactionsMapping) {
+			List<List<PositionAndProvenance>> expandedNegPositionsCompacted, int[] expandedPosTransactionsMapping,
+			int[] expandedNegTransactionsMapping) {
 		this.posFreqLowerBound = parentDataset.posFreqLowerBound;
 		this.negFreqUpperBound = parentDataset.negFreqUpperBound;
 		this.gapConstraint = parentDataset.gapConstraint;
@@ -268,8 +278,8 @@ public class TransactionsBasedDataset implements Dataset {
 		System.arraycopy(parentDataset.sequence, 0, this.sequence, 1, parentDataset.sequence.length);
 		this.sequence[0] = expansionItem;
 		this.resultsCollector = parentDataset.resultsCollector;
-		this.itemPresenceMapPositive = newItemPresenceMapPositive;
-		this.itemPresenceMapNegative = newItemPresenceMapNegative;
+		this.itemPresenceMapPositive = parentDataset.itemPresenceMapPositive;
+		this.itemPresenceMapNegative = parentDataset.itemPresenceMapNegative;
 		this.currentSeqPresencePositive = expandedPosPositionsCompacted;
 		this.currentSeqPresenceNegative = expandedNegPositionsCompacted;
 		this.positiveTransactions = parentDataset.positiveTransactions;
@@ -277,8 +287,9 @@ public class TransactionsBasedDataset implements Dataset {
 		this.originalPosTransactionsMapping = expandedPosTransactionsMapping;
 		this.originalNegTransactionsMapping = expandedNegTransactionsMapping;
 		this.possibleExtensions = this.computePossibleExtensions();
+		this.prefixCollector = parentDataset.prefixCollector;
 		// int shift = 11;
-		isInteresting = false;
+		// isInteresting = false;
 		// if (this.sequence.length == interestingPattern.length - shift) {
 		// isInteresting = true;
 		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
@@ -299,8 +310,8 @@ public class TransactionsBasedDataset implements Dataset {
 
 	@Override
 	final public ExpandStatus expand(final int expansionItem, Dataset[] expandedDataset) {
-		isInteresting = false;
-		// int shift = 0;
+		// isInteresting = false;
+		// int shift = 1;
 		// if (this.sequence.length == interestingPattern.length - shift) {
 		// isInteresting = true;
 		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
@@ -316,22 +327,27 @@ public class TransactionsBasedDataset implements Dataset {
 		// isInteresting = expansionItem == interestingPattern[shift - 1];
 		// }
 		// }
+		// if (isInteresting) {
+		// System.out.println("hello");
+		// }
 		// compute support count in positive dataset
-		final TIntList[] expansionItemPosPositions = this.itemPresenceMapPositive.get(expansionItem);
-		final List<List<PositionAndProvenance>> expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(
-				expansionItemPosPositions.length);
-		// for custom optimization, not in original algorithm
-		final int[] expandedPosLastPosition = new int[expansionItemPosPositions.length];
-		int posSupport = expansionItemPosPositions.length;
-		for (int i = 0; i < expansionItemPosPositions.length; i++) {
-			if (expansionItemPosPositions[i] != null) {
-				if (currentSeqPresencePositive != null) {
-					expandedPosPositions.add(this.findMatchingPosition(i, true, expansionItemPosPositions[i]));
+		final TIntList[] expansionItemPosPositions = this.itemPresenceMapPositive[expansionItem];
+		List<List<PositionAndProvenance>> expandedPosPositions;
+		int posSupport;
+		if (this.currentSeqPresencePositive == null) {
+			expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(expansionItemPosPositions.length);
+			posSupport = expansionItemPosPositions.length;
+			for (TIntList positions : expansionItemPosPositions) {
+				if (positions == null) {
+					posSupport--;
+					if (posSupport < posFreqLowerBound) {
+						throw new RuntimeException("not supposed to happen anymore");
+					}
+					expandedPosPositions.add(null);
 				} else {
-					// starter item, sequence currently empty
-					final List<PositionAndProvenance> lp = new ArrayList<>(expansionItemPosPositions[i].size());
+					final List<PositionAndProvenance> lp = new ArrayList<>(positions.size());
 					expandedPosPositions.add(lp);
-					expansionItemPosPositions[i].forEach(new TIntProcedure() {
+					positions.forEach(new TIntProcedure() {
 
 						@Override
 						public boolean execute(int p) {
@@ -340,53 +356,44 @@ public class TransactionsBasedDataset implements Dataset {
 						}
 					});
 				}
-				if (expandedPosPositions.get(i) == null) {
+			}
+		} else {
+			expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(this.currentSeqPresencePositive.size());
+			posSupport = this.currentSeqPresencePositive.size();
+			for (int i = 0; i < this.currentSeqPresencePositive.size(); i++) {
+				List<PositionAndProvenance> matching = null;
+				if (expansionItemPosPositions[this.originalPosTransactionsMapping[i]] != null) {
+					matching = this.findMatchingPosition(i, true,
+							expansionItemPosPositions[this.originalPosTransactionsMapping[i]]);
+				}
+				expandedPosPositions.add(matching);
+				if (matching == null) {
 					posSupport--;
 					if (posSupport < posFreqLowerBound) {
-						// support of expansion in positive will be too low
 						throw new RuntimeException("not supposed to happen anymore");
-						// throw new InfrequentException();
 					}
-				} else {
-					expandedPosLastPosition[i] = this.findLastOccurence(expandedPosPositions.get(i));
 				}
-			} else {
-				posSupport--;
-				if (posSupport < posFreqLowerBound) {
-					// support of expansion in positive will be too low
-					// not supposed to occure since we already selected
-					// extension items based on support
-					throw new RuntimeException("not supposed to happen anymore");
-					// throw new InfrequentException();
-				}
-				expandedPosPositions.add(null);
 			}
 		}
 		// if we reach this point, the expanded sequence is frequent in the
 		// positive dataset
 		// we now compute the support in the negative dataset
-		final TIntList[] expansionItemNegPositions = this.itemPresenceMapNegative.get(expansionItem);
+		final TIntList[] expansionItemNegPositions = this.itemPresenceMapNegative[expansionItem];
 		int negSupport = 0;
 		boolean emerging = false;
-		List<List<PositionAndProvenance>> expandedNegPositions = null;
-		int[] expandedNegLastPosition = null;
-		if (expansionItemNegPositions == null) {
-			emerging = true;
-			negSupport = 0;
-		} else {
-			negSupport = expansionItemNegPositions.length;
-			expandedNegPositions = new ArrayList<>(expansionItemNegPositions.length);
-			// for custom optimization, not in original algorithm
-			expandedNegLastPosition = new int[expansionItemNegPositions.length];
-			for (int i = 0; !emerging && i < expansionItemNegPositions.length; i++) {
-				if (expansionItemNegPositions[i] != null) {
-					if (currentSeqPresenceNegative != null) {
-						expandedNegPositions.add(this.findMatchingPosition(i, false, expansionItemNegPositions[i]));
+		List<List<PositionAndProvenance>> expandedNegPositions;
+		if (expansionItemNegPositions != null) {
+			expandedNegPositions = new ArrayList<List<PositionAndProvenance>>(expansionItemNegPositions.length);
+			if (this.currentSeqPresenceNegative == null) {
+				negSupport = expansionItemNegPositions.length;
+				for (TIntList positions : expansionItemNegPositions) {
+					if (positions == null) {
+						negSupport--;
+						expandedNegPositions.add(null);
 					} else {
-						// starter item, sequence currently empty
-						final List<PositionAndProvenance> lp = new ArrayList<>(expansionItemNegPositions[i].size());
+						final List<PositionAndProvenance> lp = new ArrayList<>(positions.size());
 						expandedNegPositions.add(lp);
-						expansionItemNegPositions[i].forEach(new TIntProcedure() {
+						positions.forEach(new TIntProcedure() {
 
 							@Override
 							public boolean execute(int p) {
@@ -395,28 +402,32 @@ public class TransactionsBasedDataset implements Dataset {
 							}
 						});
 					}
-					if (expandedNegPositions.get(i) == null) {
+				}
+				if (negSupport <= negFreqUpperBound) {
+					throw new RuntimeException("singletons are not supposed to be emerging");
+				}
+			} else {
+				expandedNegPositions = new ArrayList<List<PositionAndProvenance>>(
+						this.currentSeqPresenceNegative.size());
+				negSupport = this.currentSeqPresenceNegative.size();
+				for (int i = 0; !emerging && i < this.currentSeqPresenceNegative.size(); i++) {
+					List<PositionAndProvenance> matching = null;
+					if (expansionItemNegPositions[this.originalNegTransactionsMapping[i]] != null) {
+						matching = this.findMatchingPosition(i, false,
+								expansionItemNegPositions[this.originalNegTransactionsMapping[i]]);
+					}
+					expandedNegPositions.add(matching);
+					if (matching == null) {
 						negSupport--;
 						if (negSupport <= negFreqUpperBound) {
-							// support of expansion in positive will be too low
 							emerging = true;
 						}
-					} else {
-						expandedNegLastPosition[i] = this.findLastOccurence(expandedNegPositions.get(i));
 					}
-				} else {
-					negSupport--;
-					if (negSupport <= negFreqUpperBound) {
-						// support of expansion in positive will be too low
-						emerging = true;
-					}
-					expandedNegPositions.add(null);
 				}
 			}
+		} else {
+			expandedNegPositions = Collections.emptyList();
 		}
-		// if (isInteresting) {
-		// System.out.println("look");
-		// }
 
 		EmergingStatus es;
 		// System.out.println("emerging " + emerging);
@@ -439,120 +450,63 @@ public class TransactionsBasedDataset implements Dataset {
 		default:
 			break;
 		}
-		if (this.checkBackscan(expandedPosPositions, expandedNegPositions)) {
-			return ExpandStatus.BACKSCAN;
+		if (this.prefixCollector != null) {
+			TIntSet prefix = this.checkBackscan(expandedPosPositions, expandedNegPositions);
+			if (prefix != null) {
+				this.prefixCollector.collectPrefix(this.sequence, expansionItem, prefix);
+				return ExpandStatus.BACKSCAN;
+			}
 		}
-		// if we reach this point we should have expandedNegPositions and
-		// expandedNegFirstPosition != null
-
-		// now prepare the new presence list of items in positive, eliminate the
-		// ones that
-		// are not frequent anymore, and note the ones that could be in closure
-		// final TIntList potentialClosure = new TIntArrayList();
-		final TIntObjectMap<TIntList[]> newItemPresenceMapPositive = new TIntObjectHashMap<>(
-				itemPresenceMapPositive.size());
-		final int finalPosSupport = posSupport;
-		this.itemPresenceMapPositive.forEachEntry(new TIntObjectProcedure<TIntList[]>() {
-
-			@Override
-			public boolean execute(int k, TIntList[] v) {
-				TIntList[] newKPresence = new TIntList[finalPosSupport];
-				int writeIndex = 0;
-				int kSupport = 0;
-				for (int i = 0; i < expandedPosPositions.size(); i++) {
-					if (expandedPosPositions.get(i) != null) {
-						if (v[i] != null && hasOccurenceBefore(v[i], expandedPosLastPosition[i])) {
-							newKPresence[writeIndex] = v[i];
-							if (newKPresence[writeIndex] != null) {
-								kSupport++;
-							}
-						}
-						writeIndex++;
-					}
-				}
-				if (kSupport >= posFreqLowerBound) {
-					newItemPresenceMapPositive.put(k, newKPresence);
-				}
-				return true;
-			}
-
-		});
 		// if there are potential future expansions
-		if (!newItemPresenceMapPositive.isEmpty()) {
-			// we prepare the new presence list of items in negative
-			final TIntObjectMap<TIntList[]> newItemPresenceMapNegative = new TIntObjectHashMap<>(
-					itemPresenceMapNegative.size());
-			final int finalNegSupport = negSupport;
-			final List<List<PositionAndProvenance>> finalExpandedNegPositions = expandedNegPositions;
-			final int[] finalExpandedNegLastPosition = expandedNegLastPosition;
-			this.itemPresenceMapNegative.forEachEntry(new TIntObjectProcedure<TIntList[]>() {
-
-				@Override
-				public boolean execute(int k, TIntList[] v) {
-					TIntList[] newKPresence = new TIntList[finalNegSupport];
-					int writeIndex = 0;
-					int kSupport = 0;
-					for (int i = 0; i < finalExpandedNegPositions.size(); i++) {
-						if (finalExpandedNegPositions.get(i) != null) {
-							if (v[i] != null && hasOccurenceBefore(v[i], finalExpandedNegLastPosition[i])) {
-								newKPresence[writeIndex] = v[i];
-								if (newKPresence[writeIndex] != null) {
-									kSupport++;
-								}
-							}
-							writeIndex++;
-						}
-					}
-					if (kSupport > negFreqUpperBound) {
-						newItemPresenceMapNegative.put(k, newKPresence);
-					}
-					return true;
+		// we can now shift expanded positions to fill the null entries
+		final List<List<PositionAndProvenance>> expandedPosPositionsCompacted = new ArrayList<>(posSupport);
+		final int[] expandedPosTransactionsMapping = new int[posSupport];
+		int writeIndex = 0;
+		for (int i = 0; i < expandedPosPositions.size(); i++) {
+			if (expandedPosPositions.get(i) != null) {
+				expandedPosPositionsCompacted.add(expandedPosPositions.get(i));
+				if (this.originalPosTransactionsMapping == null) {
+					expandedPosTransactionsMapping[writeIndex] = i;
+				} else {
+					expandedPosTransactionsMapping[writeIndex] = this.originalPosTransactionsMapping[i];
 				}
-
-			});
-
-			// we can now shift expanded positions to fill the null entries
-			final List<List<PositionAndProvenance>> expandedPosPositionsCompacted = new ArrayList<>(finalPosSupport);
-			final int[] expandedPosTransactionsMapping = new int[finalPosSupport];
-			int writeIndex = 0;
-			for (int i = 0; i < expandedPosPositions.size(); i++) {
-				if (expandedPosPositions.get(i) != null) {
-					expandedPosPositionsCompacted.add(expandedPosPositions.get(i));
-					if (this.originalPosTransactionsMapping == null) {
-						expandedPosTransactionsMapping[writeIndex] = i;
-					} else {
-						expandedPosTransactionsMapping[writeIndex] = this.originalPosTransactionsMapping[i];
-					}
-					writeIndex++;
-				}
+				writeIndex++;
 			}
-			final List<List<PositionAndProvenance>> expandedNegPositionsCompacted = new ArrayList<>(finalNegSupport);
-			final int[] expandedNegTransactionsMapping = new int[finalNegSupport];
-			writeIndex = 0;
-			for (int i = 0; i < expandedNegPositions.size(); i++) {
-				if (expandedNegPositions.get(i) != null) {
-					expandedNegPositionsCompacted.add(expandedNegPositions.get(i));
-					if (this.originalNegTransactionsMapping == null) {
-						expandedNegTransactionsMapping[writeIndex] = i;
-					} else {
-						expandedNegTransactionsMapping[writeIndex] = this.originalNegTransactionsMapping[i];
-					}
-					writeIndex++;
+		}
+		final List<List<PositionAndProvenance>> expandedNegPositionsCompacted = new ArrayList<>(negSupport);
+		final int[] expandedNegTransactionsMapping = new int[negSupport];
+		writeIndex = 0;
+		for (int i = 0; i < expandedNegPositions.size(); i++) {
+			if (expandedNegPositions.get(i) != null) {
+				expandedNegPositionsCompacted.add(expandedNegPositions.get(i));
+				if (this.originalNegTransactionsMapping == null) {
+					expandedNegTransactionsMapping[writeIndex] = i;
+				} else {
+					expandedNegTransactionsMapping[writeIndex] = this.originalNegTransactionsMapping[i];
 				}
+				writeIndex++;
 			}
-
-			// we have all we need, instantiate dataset
-			expandedDataset[0] = this.inistantiateDataset(expansionItem, expandedPosPositionsCompacted,
-					expandedNegPositionsCompacted, newItemPresenceMapPositive, newItemPresenceMapNegative,
-					expandedPosTransactionsMapping, expandedNegTransactionsMapping);
-			return ExpandStatus.OK;
-		} else {
+		}
+		// check if this future expansion has potential
+		switch (this.resultsCollector.hasPotential(this.sequence, expansionItem)) {
+		case EMERGING_WITHOUT_EXPANSION:
+			return ExpandStatus.EMERGING_PARENT;
+		case EMERGING_WITH_EXPANSION:
 			return ExpandStatus.DEAD_END;
+		case NO_EMERGING_SUBSET:
+			expandedDataset[0] = this.inistantiateDataset(expansionItem, expandedPosPositionsCompacted,
+					expandedNegPositionsCompacted, expandedPosTransactionsMapping, expandedNegTransactionsMapping);
+			return ExpandStatus.OK;
+		default:
+			throw new RuntimeException("not supposed to be here");
 		}
 	}
 
 	protected List<PositionAndProvenance> findMatchingPosition(int transIndex, boolean positive,
 			TIntList extensionItemPos) {
+		if (extensionItemPos == null) {
+			return null;
+		}
 		List<PositionAndProvenance> seqPos;
 		if (positive) {
 			seqPos = this.currentSeqPresencePositive.get(transIndex);
@@ -612,7 +566,7 @@ public class TransactionsBasedDataset implements Dataset {
 				validAreaStart = Math.max(validAreaEnd - 1 - this.getGapConstraint(), 0);// inclusive
 				validAreaEnd = Math.min(oldStart, validAreaEnd);
 				for (int j = validAreaStart; j < validAreaEnd; j++) {
-					if (transaction[j] != -1 && this.itemPresenceMapPositive.containsKey(transaction[j])) {
+					if (transaction[j] != -1) {
 						extInTrans.add(transaction[j]);
 					}
 				}
@@ -635,12 +589,10 @@ public class TransactionsBasedDataset implements Dataset {
 
 	protected TransactionsBasedDataset inistantiateDataset(int expansionItem,
 			List<List<PositionAndProvenance>> expandedPosPositionsCompacted,
-			List<List<PositionAndProvenance>> expandedNegPositionsCompacted,
-			TIntObjectMap<TIntList[]> newItemPresenceMapPositive, TIntObjectMap<TIntList[]> newItemPresenceMapNegative,
-			int[] expandedPosTransactionsMapping, int[] expandedNegTransactionsMapping) {
+			List<List<PositionAndProvenance>> expandedNegPositionsCompacted, int[] expandedPosTransactionsMapping,
+			int[] expandedNegTransactionsMapping) {
 		return new TransactionsBasedDataset(this, expansionItem, expandedPosPositionsCompacted,
-				expandedNegPositionsCompacted, newItemPresenceMapPositive, newItemPresenceMapNegative,
-				expandedPosTransactionsMapping, expandedNegTransactionsMapping);
+				expandedNegPositionsCompacted, expandedPosTransactionsMapping, expandedNegTransactionsMapping);
 	}
 
 	protected int findLastOccurence(List<PositionAndProvenance> seqPos) {
@@ -669,20 +621,21 @@ public class TransactionsBasedDataset implements Dataset {
 		int startPos = position + 1;
 		TIntSet out = new TIntHashSet();
 		for (int pos = startPos; pos < backspaceBound; pos++) {
-			out.add(transaction[pos]);
+			if (transaction[pos] != -1) {
+				out.add(transaction[pos]);
+			}
 		}
 		return out;
 	}
 
-	// true if there is a backspace that is present in all occurrences of the
-	// pattern
-	private boolean checkBackscan(List<List<PositionAndProvenance>> expandedPosPositions,
+	private TIntSet checkBackscan(List<List<PositionAndProvenance>> expandedPosPositions,
 			List<List<PositionAndProvenance>> expandedNegPositions) {
 		TIntSet inter = null;
 		int[] lastIndexPerDepth = new int[this.sequence.length];
 		for (int i = 0; i < expandedPosPositions.size(); i++) {
 			List<PositionAndProvenance> lPos = expandedPosPositions.get(i);
 			if (lPos != null) {
+				Arrays.fill(lastIndexPerDepth, 0);
 				int[] transaction;
 				if (this.originalPosTransactionsMapping != null) {
 					transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
@@ -693,13 +646,14 @@ public class TransactionsBasedDataset implements Dataset {
 					inter = this.recCheckBackscan(pos, transaction, lastIndexPerDepth, 0, inter);
 				}
 				if (inter.isEmpty()) {
-					return false;
+					return null;
 				}
 			}
 		}
 		for (int i = 0; i < expandedNegPositions.size(); i++) {
 			List<PositionAndProvenance> lPos = expandedNegPositions.get(i);
 			if (lPos != null) {
+				Arrays.fill(lastIndexPerDepth, 0);
 				int[] transaction;
 				if (this.originalNegTransactionsMapping != null) {
 					transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[i]);
@@ -710,11 +664,11 @@ public class TransactionsBasedDataset implements Dataset {
 					inter = this.recCheckBackscan(pos, transaction, lastIndexPerDepth, 0, inter);
 				}
 				if (inter.isEmpty()) {
-					return false;
+					return null;
 				}
 			}
 		}
-		return true;
+		return inter;
 	}
 
 	private TIntSet recCheckBackscan(PositionAndProvenance pos, int[] transaction, int[] lastIndexPerDepth, int depth,

@@ -112,9 +112,9 @@ public class FindSupport {
 	}
 
 	public static void main(String[] args) throws Exception {
-		int[] seq = { 8242, 8203 };
-		int gap = 2;
-		String datasetFile = "/Users/vleroy/Workspace/emerging/Dall_as_nums.txt_tiny";
+		int[] seq = { 8720, 8718, 8779 };
+		int gap = 0;
+		String datasetFile = "/Users/vleroy/Workspace/emerging/D1_as_nums.txt";
 		while (true) {
 			BufferedReader br = new BufferedReader(new FileReader(datasetFile));
 			String line;
@@ -136,11 +136,11 @@ public class FindSupport {
 							+ " occurences");
 					// System.out.println("batch of occurences");
 					for (int[] pos : matchingPos.get(matchingPos.size() - 1)) {
-						// System.out.println("pos: " + Arrays.toString(pos));
+						System.out.println("pos: " + Arrays.toString(pos));
 						for (int i = pos[0]; i <= pos[pos.length - 1] + gap + 1; i++) {
-							// System.out.print(transaction[i] + " ");
+							System.out.print(transaction[i] + " ");
 						}
-						// System.out.println();
+						System.out.println();
 					}
 				} else {
 					matchingPos.add(null);

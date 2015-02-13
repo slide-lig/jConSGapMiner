@@ -54,8 +54,7 @@ public class MiningStep {
 			case EMERGING:
 				break;
 			case EMERGING_PARENT:
-				// TODO in theory here we return
-				break;
+				return null;
 			case INFREQUENT:
 				break;
 			case OK:

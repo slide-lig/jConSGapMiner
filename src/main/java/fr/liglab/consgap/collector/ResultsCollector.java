@@ -43,6 +43,10 @@ public abstract class ResultsCollector {
 
 	public abstract List<String[]> getNonRedundant();
 
+	public abstract void setPrefixFilter(PrefixCollector prefixFilter);
+
+	public abstract EmergingStatus hasPotential(int[] sequence, int expansionItem);
+
 	public static enum EmergingStatus {
 		NEW_EMERGING, EMERGING_WITHOUT_EXPANSION, EMERGING_WITH_EXPANSION, NO_EMERGING_SUBSET
 	}
