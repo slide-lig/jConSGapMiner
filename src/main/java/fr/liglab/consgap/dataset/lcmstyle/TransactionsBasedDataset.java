@@ -330,54 +330,21 @@ public class TransactionsBasedDataset implements Dataset {
 		// if (isInteresting) {
 		// System.out.println("hello");
 		// }
-		// compute support count in positive dataset
-		final TIntList[] expansionItemPosPositions = this.itemPresenceMapPositive[expansionItem];
-		List<List<PositionAndProvenance>> expandedPosPositions;
-		int posSupport;
-		if (this.currentSeqPresencePositive == null) {
-			expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(expansionItemPosPositions.length);
-			posSupport = expansionItemPosPositions.length;
-			for (TIntList positions : expansionItemPosPositions) {
-				if (positions == null) {
-					posSupport--;
-					if (posSupport < posFreqLowerBound) {
-						throw new RuntimeException("not supposed to happen anymore");
-					}
-					expandedPosPositions.add(null);
-				} else {
-					final List<PositionAndProvenance> lp = new ArrayList<>(positions.size());
-					expandedPosPositions.add(lp);
-					positions.forEach(new TIntProcedure() {
 
-						@Override
-						public boolean execute(int p) {
-							lp.add(new PositionAndProvenance(p));
-							return true;
-						}
-					});
-				}
-			}
-		} else {
-			expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(this.currentSeqPresencePositive.size());
-			posSupport = this.currentSeqPresencePositive.size();
-			for (int i = 0; i < this.currentSeqPresencePositive.size(); i++) {
-				List<PositionAndProvenance> matching = null;
-				if (expansionItemPosPositions[this.originalPosTransactionsMapping[i]] != null) {
-					matching = this.findMatchingPosition(i, true,
-							expansionItemPosPositions[this.originalPosTransactionsMapping[i]]);
-				}
-				expandedPosPositions.add(matching);
-				if (matching == null) {
-					posSupport--;
-					if (posSupport < posFreqLowerBound) {
-						throw new RuntimeException("not supposed to happen anymore");
-					}
-				}
-			}
+		// check if this expansion has potential
+		switch (this.resultsCollector.hasPotential(this.sequence, expansionItem)) {
+		case EMERGING_WITHOUT_EXPANSION:
+			return ExpandStatus.EMERGING_PARENT;
+		case EMERGING_WITH_EXPANSION:
+			return ExpandStatus.DEAD_END;
+		case NO_EMERGING_SUBSET:
+			break;
+		default:
+			throw new RuntimeException("not supposed to be here");
 		}
-		// if we reach this point, the expanded sequence is frequent in the
-		// positive dataset
-		// we now compute the support in the negative dataset
+
+		// if we are here, the item is frequent in positive, so start by
+		// computing support in negative dataset
 		final TIntList[] expansionItemNegPositions = this.itemPresenceMapNegative[expansionItem];
 		int negSupport = 0;
 		boolean emerging = false;
@@ -450,6 +417,52 @@ public class TransactionsBasedDataset implements Dataset {
 		default:
 			break;
 		}
+		// compute support count in positive dataset
+		final TIntList[] expansionItemPosPositions = this.itemPresenceMapPositive[expansionItem];
+		List<List<PositionAndProvenance>> expandedPosPositions;
+		int posSupport;
+		if (this.currentSeqPresencePositive == null) {
+			expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(expansionItemPosPositions.length);
+			posSupport = expansionItemPosPositions.length;
+			for (TIntList positions : expansionItemPosPositions) {
+				if (positions == null) {
+					posSupport--;
+					if (posSupport < posFreqLowerBound) {
+						throw new RuntimeException("not supposed to happen anymore");
+					}
+					expandedPosPositions.add(null);
+				} else {
+					final List<PositionAndProvenance> lp = new ArrayList<>(positions.size());
+					expandedPosPositions.add(lp);
+					positions.forEach(new TIntProcedure() {
+
+						@Override
+						public boolean execute(int p) {
+							lp.add(new PositionAndProvenance(p));
+							return true;
+						}
+					});
+				}
+			}
+		} else {
+			expandedPosPositions = new ArrayList<List<PositionAndProvenance>>(this.currentSeqPresencePositive.size());
+			posSupport = this.currentSeqPresencePositive.size();
+			for (int i = 0; i < this.currentSeqPresencePositive.size(); i++) {
+				List<PositionAndProvenance> matching = null;
+				if (expansionItemPosPositions[this.originalPosTransactionsMapping[i]] != null) {
+					matching = this.findMatchingPosition(i, true,
+							expansionItemPosPositions[this.originalPosTransactionsMapping[i]]);
+				}
+				expandedPosPositions.add(matching);
+				if (matching == null) {
+					posSupport--;
+					if (posSupport < posFreqLowerBound) {
+						throw new RuntimeException("not supposed to happen anymore");
+					}
+				}
+			}
+		}
+		// we now compute the support in the negative dataset
 		if (this.prefixCollector != null) {
 			TIntSet prefix = this.checkBackscan(expandedPosPositions, expandedNegPositions);
 			if (prefix != null) {
@@ -459,47 +472,43 @@ public class TransactionsBasedDataset implements Dataset {
 		}
 		// if there are potential future expansions
 		// we can now shift expanded positions to fill the null entries
-		final List<List<PositionAndProvenance>> expandedPosPositionsCompacted = new ArrayList<>(posSupport);
+		final Iterator<List<PositionAndProvenance>> expandedPosPosIter = expandedPosPositions.iterator();
 		final int[] expandedPosTransactionsMapping = new int[posSupport];
 		int writeIndex = 0;
-		for (int i = 0; i < expandedPosPositions.size(); i++) {
-			if (expandedPosPositions.get(i) != null) {
-				expandedPosPositionsCompacted.add(expandedPosPositions.get(i));
+		int i = 0;
+		while (expandedPosPosIter.hasNext()) {
+			if (expandedPosPosIter.next() != null) {
 				if (this.originalPosTransactionsMapping == null) {
 					expandedPosTransactionsMapping[writeIndex] = i;
 				} else {
 					expandedPosTransactionsMapping[writeIndex] = this.originalPosTransactionsMapping[i];
 				}
 				writeIndex++;
+			} else {
+				expandedPosPosIter.remove();
 			}
+			i++;
 		}
-		final List<List<PositionAndProvenance>> expandedNegPositionsCompacted = new ArrayList<>(negSupport);
 		final int[] expandedNegTransactionsMapping = new int[negSupport];
 		writeIndex = 0;
-		for (int i = 0; i < expandedNegPositions.size(); i++) {
-			if (expandedNegPositions.get(i) != null) {
-				expandedNegPositionsCompacted.add(expandedNegPositions.get(i));
+		Iterator<List<PositionAndProvenance>> expandedNegPosIter = expandedNegPositions.iterator();
+		i = 0;
+		while (expandedNegPosIter.hasNext()) {
+			if (expandedNegPosIter.next() != null) {
 				if (this.originalNegTransactionsMapping == null) {
 					expandedNegTransactionsMapping[writeIndex] = i;
 				} else {
 					expandedNegTransactionsMapping[writeIndex] = this.originalNegTransactionsMapping[i];
 				}
 				writeIndex++;
+			} else {
+				expandedNegPosIter.remove();
 			}
+			i++;
 		}
-		// check if this future expansion has potential
-		switch (this.resultsCollector.hasPotential(this.sequence, expansionItem)) {
-		case EMERGING_WITHOUT_EXPANSION:
-			return ExpandStatus.EMERGING_PARENT;
-		case EMERGING_WITH_EXPANSION:
-			return ExpandStatus.DEAD_END;
-		case NO_EMERGING_SUBSET:
-			expandedDataset[0] = this.inistantiateDataset(expansionItem, expandedPosPositionsCompacted,
-					expandedNegPositionsCompacted, expandedPosTransactionsMapping, expandedNegTransactionsMapping);
-			return ExpandStatus.OK;
-		default:
-			throw new RuntimeException("not supposed to be here");
-		}
+		expandedDataset[0] = this.inistantiateDataset(expansionItem, expandedPosPositions, expandedNegPositions,
+				expandedPosTransactionsMapping, expandedNegTransactionsMapping);
+		return ExpandStatus.OK;
 	}
 
 	protected List<PositionAndProvenance> findMatchingPosition(int transIndex, boolean positive,
