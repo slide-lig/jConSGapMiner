@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -129,23 +128,6 @@ abstract class ATidBasedDataset<S> implements Dataset {
 			keptItems[writePos] = iter.key();
 			writePos++;
 		}
-		Arrays.sort(keptItems, new Comparator<String>() {
-
-			@Override
-			public int compare(String o1, String o2) {
-				int negSupportDiff = negFreqCounting.get(o1) - negFreqCounting.get(o2);
-				if (negSupportDiff != 0) {
-					return negSupportDiff;
-				} else {
-					int posSupportDiff = posFreqCounting.get(o1) - posFreqCounting.get(o2);
-					if (posSupportDiff != 0) {
-						return posSupportDiff;
-					} else {
-						return o1.compareTo(o2);
-					}
-				}
-			}
-		});
 		TObjectIntMap<String> itemsRenaming = new TObjectIntHashMap<String>();
 		String[] rebasing = new String[keptItems.length];
 		for (int i = 0; i < keptItems.length; i++) {
@@ -188,7 +170,7 @@ abstract class ATidBasedDataset<S> implements Dataset {
 			if (!line.isEmpty()) {
 				String[] sp = line.split(Main.separator);
 				for (int i = 0; i < sp.length; i++) {
-					int itemOldId = Integer.parseInt(sp[i]);
+					String itemOldId = sp[i];
 					if (negFreqCounting.containsKey(itemOldId)) {
 						int item = itemsRenaming.get(itemOldId);
 						S[] bsArray = this.itemPresenceMapNegative.get(item);
@@ -462,4 +444,10 @@ abstract class ATidBasedDataset<S> implements Dataset {
 	final public int[] getSequence() {
 		return this.sequence;
 	}
+
+	@Override
+	public String toString() {
+		return "ATidBasedDataset [sequence=" + Arrays.toString(sequence) + "]";
+	}
+
 }
