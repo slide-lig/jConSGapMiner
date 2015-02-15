@@ -7,8 +7,8 @@ import java.util.List;
 
 public class CompareResults {
 	public static void main(String[] args) throws Exception {
-		String refFile = "/Users/vleroy/Workspace/emerging/emergseqs_gap2.txt";
-		String compFile = "/Users/vleroy/Workspace/emerging/emergeseq_gap2-new.txt";
+		String compFile = "/Users/vleroy/Workspace/emerging/emergseqs_gap2.txt";
+		String refFile = "/Users/vleroy/Workspace/emerging/emergeseq_gap2-new.txt";
 		boolean strict = true;
 		List<List<Integer>> compRes = new ArrayList<>();
 		BufferedReader br = new BufferedReader(new FileReader(compFile));

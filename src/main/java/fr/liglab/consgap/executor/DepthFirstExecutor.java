@@ -35,7 +35,7 @@ public class DepthFirstExecutor implements MiningExecutor {
 
 	@Override
 	public void mine(Dataset d) {
-		MiningStep initState = new MiningStep(d);
+		MiningStep initState = new MiningStep(d,true);
 		List<DepthFirstThread> threads = new ArrayList<DepthFirstThread>(this.nbThreads);
 		for (int id = 0; id < this.nbThreads; id++) {
 			threads.add(new DepthFirstThread(id, threads));

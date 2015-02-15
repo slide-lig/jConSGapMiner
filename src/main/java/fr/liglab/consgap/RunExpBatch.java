@@ -31,12 +31,11 @@ import fr.liglab.consgap.dataset.Dataset;
 import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 import fr.liglab.consgap.executor.DepthFirstExecutor;
 import fr.liglab.consgap.executor.MiningExecutor;
-import fr.liglab.consgap.executor.MiningStep;
 
 public class RunExpBatch {
 
 	public static void main(String[] args) throws IOException {
-		Main.separator = "\\s";
+		ConfStats.separator = "\\s";
 		int nbThreads = 10;
 		String posFile = args[0];
 		String negFile = args[2];
@@ -71,7 +70,7 @@ public class RunExpBatch {
 		System.out.println("total minimal emerging sequences = " + minimalEmerging.size()
 				+ "\ntotal sequences collected = " + dataset.getResultsCollector().getNbCollected());
 		System.out.println("execution time " + (endTime - startTime) + " ms including "
-				+ (endTime - removeRedundantStart) + " ms removing redundant results, performed "
-				+ MiningStep.loopCounts.get() + " iterations");
+				+ (endTime - removeRedundantStart) + " ms removing redundant results");
+		ConfStats.printShortStats();
 	}
 }

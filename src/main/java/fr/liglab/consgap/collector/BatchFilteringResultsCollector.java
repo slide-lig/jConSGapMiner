@@ -21,10 +21,13 @@
 package fr.liglab.consgap.collector;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+
+import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 
 public class BatchFilteringResultsCollector extends ResultsCollector {
 
@@ -58,13 +61,8 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 		fullSeq[0] = expansionItem;
 		TreeNode root = this.filteringTree;
 		if (root != null) {
-			int lastPos = recursiveSubsetCheck(root, fullSeq, fullSeq.length - 1);
-			if (lastPos >= 0) {
-				if (lastPos == 0) {
-					return EmergingStatus.EMERGING_WITH_EXPANSION;
-				} else {
-					return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
-				}
+			if (checkEmergingContainsMinimal(root, fullSeq)) {
+				return EmergingStatus.EMERGING_WITH_EXPANSION;
 			}
 		}
 		List<int[]> batchSeq = null;
@@ -95,18 +93,13 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 
 	@Override
 	public EmergingStatus hasPotential(int[] sequence, int expansionItem) {
-		int[] fullSeq = new int[sequence.length + 1];
-		System.arraycopy(sequence, 0, fullSeq, 1, sequence.length);
-		fullSeq[0] = expansionItem;
 		TreeNode root = this.filteringTree;
 		if (root != null) {
-			int lastPos = recursiveSubsetCheck(root, fullSeq, fullSeq.length - 1);
-			if (lastPos >= 0) {
-				if (lastPos == 0) {
-					return EmergingStatus.EMERGING_WITH_EXPANSION;
-				} else {
-					return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
-				}
+			int checkRes = checkSeqContainsMinimal(root, sequence, expansionItem);
+			if (checkRes == 0) {
+				return EmergingStatus.EMERGING_WITH_EXPANSION;
+			} else if (checkRes > 0) {
+				return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
 			}
 		}
 		return EmergingStatus.NO_EMERGING_SUBSET;
@@ -146,27 +139,18 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 	}
 
 	private static List<int[]> getNonRedundant(TreeNode rootNode, List<int[]> sequences) {
-		// sort sequences by size and then lexico
+		// sort sequences by size
 		Collections.sort(sequences, new Comparator<int[]>() {
 
 			@Override
 			public int compare(int[] o1, int[] o2) {
 				int diffSize = o1.length - o2.length;
-				if (diffSize != 0) {
-					return diffSize;
-				} else {
-					for (int i = 0; i < o1.length; i++) {
-						if (o1[i] != o2[i]) {
-							return o1[i] - o2[i];
-						}
-					}
-					return 0;
-				}
+				return diffSize;
 			}
 		});
 		List<int[]> nonRedundant = new ArrayList<>();
 		for (int[] seq : sequences) {
-			if (recursiveSubsetCheck(rootNode, seq, seq.length - 1) < 0) {
+			if (!checkEmergingContainsMinimal(rootNode, seq)) {
 				nonRedundant.add(seq);
 				// insert in tree
 				insertIntoTree(rootNode, seq);
@@ -175,40 +159,135 @@ public class BatchFilteringResultsCollector extends ResultsCollector {
 		return nonRedundant;
 	}
 
-	// checks from left to right
-	static private int recursiveSubsetCheck(TreeNode currentNode, int[] seq, int from) {
-		for (int i = from; i >= 0; i--) {
-			TreeNode nextNode = currentNode.get(seq[i]);
-			if (nextNode != null) {
-				// if it's a leaf, we're done
-				if (nextNode.isEmpty()) {
-					return i;
-				} else {
-					int subSetCheck = recursiveSubsetCheck(nextNode, seq, i - 1);
-					if (subSetCheck >= 0) {
-						return subSetCheck;
-					}
-				}
+	static private int checkSeqContainsMinimal(TreeNode rootNode, int[] seq, int expansion) {
+		for (int i = 0; i < seq.length; i++) {
+			if (recursiveSubsetCheck(rootNode, seq, i)) {
+				return 1;
+			}
+		}
+		TreeNode t = rootNode.get(expansion);
+		if (t != null) {
+			if (recursiveSubsetCheck(t, seq, 0)) {
+				return 0;
 			}
 		}
 		return -1;
 	}
 
+	static private boolean checkEmergingContainsMinimal(TreeNode rootNode, int[] seq) {
+		for (int i = 0; i < seq.length; i++) {
+			if (recursiveSubsetCheck(rootNode, seq, i)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// if contains a minimal, then first item has to be in
+	static private boolean recursiveSubsetCheck(TreeNode currentNode, int[] seq, int from) {
+		for (int i = from; i < seq.length; i++) {
+			TreeNode nextNode = currentNode.get(seq[i]);
+			if (nextNode != null) {
+				if (nextNode.seqFragment != null) {
+					int seqFragIndex = 0;
+					for (int j = i + 1; j < seq.length; j++) {
+						if (nextNode.seqFragment[seqFragIndex] == seq[j]) {
+							seqFragIndex++;
+							if (seqFragIndex == nextNode.seqFragment.length) {
+								if (nextNode.isEmpty()) {
+									return true;
+								} else if (recursiveSubsetCheck(nextNode, seq, j + 1)) {
+									return true;
+								} else {
+									break;
+								}
+							}
+						}
+					}
+				} else {
+					// if it's a leaf, we're done
+					if (nextNode.isEmpty()) {
+						return true;
+					} else if (recursiveSubsetCheck(nextNode, seq, i + 1)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 	static private void insertIntoTree(TreeNode rootNode, int[] seq) {
 		TreeNode currentNode = rootNode;
-		for (int i = seq.length - 1; i >= 0; i--) {
+		for (int i = 0; i < seq.length; i++) {
 			int item = seq[i];
 			TreeNode nextNode = currentNode.get(item);
 			if (nextNode == null) {
 				nextNode = new TreeNode();
 				currentNode.put(item, nextNode);
+				if (i != seq.length - 1) {
+					nextNode.seqFragment = new int[seq.length - (i + 1)];
+					System.arraycopy(seq, i + 1, nextNode.seqFragment, 0, seq.length - (i + 1));
+				}
+				return;
+			} else if (nextNode.seqFragment != null) {
+				int diffDelta = -1;
+				for (int j = 0; j < nextNode.seqFragment.length; j++) {
+					if (nextNode.seqFragment[j] != seq[i + j + 1]) {
+						diffDelta = j;
+						break;
+					}
+				}
+				if (diffDelta == -1) {
+					i += nextNode.seqFragment.length;
+					currentNode = nextNode;
+				} else {
+					TreeNode replacementNode = new TreeNode();
+					currentNode.put(item, replacementNode);
+					TreeNode replacedNode = nextNode;
+					if (diffDelta == 0) {
+						replacementNode.put(replacedNode.seqFragment[0], replacedNode);
+						if (replacedNode.seqFragment.length == 1) {
+							replacedNode.seqFragment = null;
+						} else {
+							int[] seqFrag = new int[replacedNode.seqFragment.length - 1];
+							System.arraycopy(replacedNode.seqFragment, 1, seqFrag, 0,
+									replacedNode.seqFragment.length - 1);
+							replacedNode.seqFragment = seqFrag;
+						}
+						currentNode = replacementNode;
+					} else {
+						replacementNode.put(replacedNode.seqFragment[diffDelta], replacedNode);
+						replacementNode.seqFragment = new int[diffDelta];
+						System.arraycopy(replacedNode.seqFragment, 0, replacementNode.seqFragment, 0, diffDelta);
+						if (replacedNode.seqFragment.length == diffDelta + 1) {
+							replacedNode.seqFragment = null;
+						} else {
+							int[] seqFrag = new int[replacedNode.seqFragment.length - diffDelta - 1];
+							System.arraycopy(replacedNode.seqFragment, diffDelta + 1, seqFrag, 0,
+									replacedNode.seqFragment.length - diffDelta - 1);
+							replacedNode.seqFragment = seqFrag;
+						}
+						currentNode = replacementNode;
+						i += diffDelta;
+					}
+				}
+			} else {
+				currentNode = nextNode;
 			}
-			currentNode = nextNode;
 		}
 	}
 
 	@Override
 	public void setPrefixFilter(PrefixCollector prefixFilter) {
 		throw new UnsupportedOperationException();
+	}
+
+	public static void main(String[] args) {
+		TreeNode root = new TreeNode();
+		insertIntoTree(root, new int[] { 1, 2, 3, 4 });
+		System.out.println(root);
+		insertIntoTree(root, new int[] { 1, 2, 6, 7 });
+		System.out.println(root);
 	}
 }

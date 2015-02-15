@@ -33,7 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import fr.liglab.consgap.Main;
+import fr.liglab.consgap.ConfStats;
 import fr.liglab.consgap.collector.PrefixCollector;
 import fr.liglab.consgap.collector.ResultsCollector;
 import fr.liglab.consgap.collector.ResultsCollector.EmergingStatus;
@@ -70,9 +70,11 @@ public class TransactionsBasedDataset implements Dataset {
 	protected final int[] originalPosTransactionsMapping;
 	protected final int[] originalNegTransactionsMapping;
 
-	// public static int[] interestingPattern;
-	// public static int interestingExtension;
-	// public static boolean isInteresting;
+	public static int[] interestingPattern;
+
+	public static int interestingExtension;
+
+	public static boolean isInteresting;
 
 	// public static int[] interestingCase;
 	// private static boolean trace = false;
@@ -92,7 +94,7 @@ public class TransactionsBasedDataset implements Dataset {
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
 				nbPositiveTransactions++;
-				String[] sp = line.split(Main.separator);
+				String[] sp = line.split(ConfStats.separator);
 				Set<String> uniqueItems = new HashSet<String>();
 				for (String item : sp) {
 					uniqueItems.add(item);
@@ -118,7 +120,7 @@ public class TransactionsBasedDataset implements Dataset {
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
 				nbNegativeTransactions++;
-				String[] sp = line.split(Main.separator);
+				String[] sp = line.split(ConfStats.separator);
 				Set<String> uniqueItems = new HashSet<String>();
 				for (String item : sp) {
 					uniqueItems.add(item);
@@ -186,7 +188,7 @@ public class TransactionsBasedDataset implements Dataset {
 		int lineNumber = 0;
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
-				String[] sp = line.split(Main.separator);
+				String[] sp = line.split(ConfStats.separator);
 				for (int i = 0; i < sp.length; i++) {
 					String itemOldId = sp[i];
 					if (posFreqCounting.containsKey(itemOldId)) {
@@ -217,7 +219,7 @@ public class TransactionsBasedDataset implements Dataset {
 		lineNumber = 0;
 		while ((line = br.readLine()) != null) {
 			if (!line.isEmpty()) {
-				String[] sp = line.split(Main.separator);
+				String[] sp = line.split(ConfStats.separator);
 				for (int i = 0; i < sp.length; i++) {
 					String itemOldId = sp[i];
 					if (posFreqCounting.containsKey(itemOldId)) {
@@ -257,13 +259,14 @@ public class TransactionsBasedDataset implements Dataset {
 		}
 		System.out.println(possibleExtensions.length + " frequent non emerging items in dataset and "
 				+ emergingItems.size() + " emerging items");
-		// int[] originalInterestingPattern = { 7226, 7209 };
+		// int[] originalInterestingPattern = { 7943, 7081, 8329, 7241, 8332,
+		// 8333, 8334 };
 		// interestingPattern = new int[originalInterestingPattern.length];
 		// for (int i = 0; i < originalInterestingPattern.length; i++) {
 		// interestingPattern[i] = itemsRenaming.get("" +
 		// originalInterestingPattern[i]);
 		// }
-		// interestingExtension = itemsRenaming.get("6688");
+		// interestingExtension = itemsRenaming.get("7943");
 		// System.out.println("130 is " + rebasing[130]);
 	}
 
@@ -311,7 +314,7 @@ public class TransactionsBasedDataset implements Dataset {
 	@Override
 	final public ExpandStatus expand(final int expansionItem, Dataset[] expandedDataset) {
 		// isInteresting = false;
-		// int shift = 1;
+		// int shift = 0;
 		// if (this.sequence.length == interestingPattern.length - shift) {
 		// isInteresting = true;
 		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
@@ -332,15 +335,19 @@ public class TransactionsBasedDataset implements Dataset {
 		// }
 
 		// check if this expansion has potential
-		switch (this.resultsCollector.hasPotential(this.sequence, expansionItem)) {
-		case EMERGING_WITHOUT_EXPANSION:
-			return ExpandStatus.EMERGING_PARENT;
-		case EMERGING_WITH_EXPANSION:
-			return ExpandStatus.DEAD_END;
-		case NO_EMERGING_SUBSET:
-			break;
-		default:
-			throw new RuntimeException("not supposed to be here");
+		if (ConfStats.pruneContainsEmerging) {
+			switch (this.resultsCollector.hasPotential(this.sequence, expansionItem)) {
+			case EMERGING_WITHOUT_EXPANSION:
+				ConfStats.incContainsEmergingPruning();
+				return ExpandStatus.EMERGING_PARENT;
+			case EMERGING_WITH_EXPANSION:
+				ConfStats.incContainsEmergingPruning();
+				return ExpandStatus.DEAD_END;
+			case NO_EMERGING_SUBSET:
+				break;
+			default:
+				throw new RuntimeException("not supposed to be here");
+			}
 		}
 
 		// if we are here, the item is frequent in positive, so start by
@@ -399,6 +406,7 @@ public class TransactionsBasedDataset implements Dataset {
 		EmergingStatus es;
 		// System.out.println("emerging " + emerging);
 		if (emerging) {
+			ConfStats.incEmergingPruning();
 			es = this.resultsCollector.collect(this.sequence, expansionItem);
 		} else {
 			es = EmergingStatus.NO_EMERGING_SUBSET;// this.resultsCollector.hasEmergingSubseq(this.sequence,
@@ -463,9 +471,10 @@ public class TransactionsBasedDataset implements Dataset {
 			}
 		}
 		// we now compute the support in the negative dataset
-		if (this.prefixCollector != null) {
+		if (ConfStats.pruneBackspace) {
 			TIntSet prefix = this.checkBackscan(expandedPosPositions, expandedNegPositions);
 			if (prefix != null) {
+				ConfStats.incBackspacePruning();
 				this.prefixCollector.collectPrefix(this.sequence, expansionItem, prefix);
 				return ExpandStatus.BACKSCAN;
 			}

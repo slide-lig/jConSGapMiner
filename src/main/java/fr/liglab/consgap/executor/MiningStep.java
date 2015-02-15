@@ -22,17 +22,22 @@ package fr.liglab.consgap.executor;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
+import fr.liglab.consgap.ConfStats;
 import fr.liglab.consgap.dataset.Dataset;
 
 public class MiningStep {
-	static final public AtomicLong loopCounts = new AtomicLong();
 	final private Dataset dataset;
 	final private AtomicInteger extensionsIndex;
 	final private int[] extensions;
+	final private boolean isRoot;
 
 	public MiningStep(Dataset dataset) {
+		this(dataset, false);
+	}
+
+	public MiningStep(Dataset dataset, boolean isRoot) {
+		this.isRoot = isRoot;
 		this.dataset = dataset;
 		this.extensions = dataset.getExtensions();
 		Arrays.sort(this.extensions);
@@ -43,7 +48,10 @@ public class MiningStep {
 		Dataset[] expansionOutput = new Dataset[1];
 		for (int index = this.extensionsIndex.getAndIncrement(); index < extensions.length; index = this.extensionsIndex
 				.getAndIncrement()) {
-			loopCounts.incrementAndGet();
+			ConfStats.incExpand();
+			if (isRoot) {
+				ConfStats.incSeedItemStarted();
+			}
 			final int extension = extensions[index];
 			expansionOutput[0] = null;
 			switch (this.dataset.expand(extension, expansionOutput)) {

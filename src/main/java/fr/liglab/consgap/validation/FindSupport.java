@@ -112,9 +112,9 @@ public class FindSupport {
 	}
 
 	public static void main(String[] args) throws Exception {
-		int[] seq = { 8720, 8718, 8779 };
-		int gap = 0;
-		String datasetFile = "/Users/vleroy/Workspace/emerging/D1_as_nums.txt";
+		int[] seq = {8392, 7943, 7972, 8336 };
+		int gap = 2;
+		String datasetFile = "/Users/vleroy/Workspace/emerging/D2_as_nums.txt_tiny";
 		while (true) {
 			BufferedReader br = new BufferedReader(new FileReader(datasetFile));
 			String line;

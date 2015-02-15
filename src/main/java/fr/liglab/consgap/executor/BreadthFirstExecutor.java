@@ -38,7 +38,7 @@ public class BreadthFirstExecutor implements MiningExecutor {
 
 	@Override
 	public void mine(Dataset d) {
-		MiningStep initState = new MiningStep(d);
+		MiningStep initState = new MiningStep(d,true);
 		List<BreadthFirstThread> threads = new ArrayList<BreadthFirstThread>(this.nbThreads);
 		for (int id = 0; id < this.nbThreads; id++) {
 			threads.add(new BreadthFirstThread(id, this, threads));

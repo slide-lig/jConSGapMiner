@@ -41,12 +41,8 @@ import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 import fr.liglab.consgap.executor.BreadthFirstExecutor;
 import fr.liglab.consgap.executor.DepthFirstExecutor;
 import fr.liglab.consgap.executor.MiningExecutor;
-import fr.liglab.consgap.executor.MiningStep;
 
 public class Main {
-
-	public static String separator = "\t";
-
 	public static void main(String[] args) throws IOException {
 		Options options = new Options();
 		CommandLineParser parser = new PosixParser();
@@ -55,7 +51,8 @@ public class Main {
 		options.addOption("h", false, "Show help");
 		options.addOption("w", false, "Use breadth first exploration instead of depth first. Usually less efficient");
 		options.addOption("t", true, "How many threads will be launched (defaults to your machine's processors count)");
-		options.addOption("p", false, "Do pruning based on the prefix of the sequence");
+		options.addOption("p", false, "Prune backspace");
+		options.addOption("e", false, "Prune contains emerging");
 		options.addOption(
 				"f",
 				true,
@@ -85,27 +82,55 @@ public class Main {
 
 	private static void standalone(CommandLine cmd) throws IOException {
 		if (cmd.hasOption("sep")) {
-			Main.separator = cmd.getOptionValue("sep");
+			ConfStats.separator = cmd.getOptionValue("sep");
 		}
-		int nbThreads = Runtime.getRuntime().availableProcessors();
 		if (cmd.hasOption('t')) {
-			nbThreads = Math.max(1, Integer.parseInt(cmd.getOptionValue('t')));
+			ConfStats.nbThreads = Math.max(1, Integer.parseInt(cmd.getOptionValue('t')));
+		} else {
+			ConfStats.nbThreads = Runtime.getRuntime().availableProcessors();
 		}
+		if (cmd.hasOption('w')) {
+			ConfStats.breadthFirst = true;
+		} else {
+			ConfStats.breadthFirst = false;
+		}
+		if (cmd.hasOption('f')) {
+			ConfStats.minimizeDuringExec = true;
+			ConfStats.minimizeThreshold = Integer.parseInt(cmd.getOptionValue('f'));
+		} else {
+			ConfStats.minimizeDuringExec = false;
+		}
+		if (cmd.hasOption('p')) {
+			ConfStats.pruneBackspace = true;
+		} else {
+			ConfStats.pruneBackspace = false;
+		}
+		if (cmd.hasOption('b')) {
+			ConfStats.benchmark = true;
+		} else {
+			ConfStats.benchmark = false;
+		}
+		if (cmd.hasOption('e')) {
+			ConfStats.pruneContainsEmerging = true;
+		} else {
+			ConfStats.pruneContainsEmerging = false;
+		}
+		ConfStats.checkConfCoherent();
 		ResultsCollector collector;
 		MiningExecutor executor;
-		if (cmd.hasOption('w')) {
+		if (ConfStats.breadthFirst) {
 			collector = new OrderedResultsCollector();
-			executor = new BreadthFirstExecutor(nbThreads);
+			executor = new BreadthFirstExecutor(ConfStats.nbThreads);
 		} else {
-			executor = new DepthFirstExecutor(nbThreads);
-			if (cmd.hasOption('f')) {
-				collector = new BatchFilteringResultsCollector(Integer.parseInt(cmd.getOptionValue('f')));
+			executor = new DepthFirstExecutor(ConfStats.nbThreads);
+			if (ConfStats.minimizeDuringExec) {
+				collector = new BatchFilteringResultsCollector(ConfStats.minimizeThreshold);
 			} else {
 				collector = new PostFilteringResultsCollector();
 			}
 		}
 		PrefixCollector prefixCollector = null;
-		if (cmd.hasOption('p')) {
+		if (ConfStats.pruneBackspace) {
 			prefixCollector = new PostFilteringPrefixCollector();
 		}
 		Dataset dataset;
@@ -118,12 +143,13 @@ public class Main {
 		// } catch (InterruptedException e) {
 		// e.printStackTrace();
 		// }
+		ConfStats.startStatsThread();
 		long startTime = System.currentTimeMillis();
 		executor.mine(dataset);
 		long removeRedundantStart = System.currentTimeMillis();
 		List<String[]> minimalEmerging = dataset.getResultsCollector().getNonRedundant();
 
-		if (!cmd.hasOption('b')) {
+		if (!ConfStats.benchmark) {
 			for (String[] seq : minimalEmerging) {
 				for (int i = 0; i < seq.length; i++) {
 					System.out.print(seq[i] + "\t");
@@ -132,10 +158,10 @@ public class Main {
 			}
 		}
 		long endTime = System.currentTimeMillis();
-		System.err.println("total minimal emerging sequences = " + minimalEmerging.size()
+		System.out.println("total minimal emerging sequences = " + minimalEmerging.size()
 				+ "\ntotal sequences collected = " + dataset.getResultsCollector().getNbCollected());
-		System.err.println("execution time " + (endTime - startTime) + " ms including "
-				+ (endTime - removeRedundantStart) + " ms removing redundant results, performed "
-				+ MiningStep.loopCounts.get() + " iterations");
+		System.out.println("execution time " + (endTime - startTime) + " ms including "
+				+ (endTime - removeRedundantStart) + " ms removing redundant results");
+		ConfStats.printShortStats();
 	}
 }

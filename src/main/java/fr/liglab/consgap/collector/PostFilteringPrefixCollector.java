@@ -1,11 +1,9 @@
 package fr.liglab.consgap.collector;
 
-import fr.liglab.consgap.dataset.lcmstyle.TransactionsBasedDataset;
 import gnu.trove.iterator.TIntIterator;
 import gnu.trove.set.TIntSet;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class PostFilteringPrefixCollector implements PrefixCollector {
