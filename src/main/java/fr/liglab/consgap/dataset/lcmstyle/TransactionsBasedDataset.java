@@ -259,14 +259,13 @@ public class TransactionsBasedDataset implements Dataset {
 		}
 		System.out.println(possibleExtensions.length + " frequent non emerging items in dataset and "
 				+ emergingItems.size() + " emerging items");
-		// int[] originalInterestingPattern = { 7943, 7081, 8329, 7241, 8332,
-		// 8333, 8334 };
+		// int[] originalInterestingPattern = { 8441, 3 };
 		// interestingPattern = new int[originalInterestingPattern.length];
 		// for (int i = 0; i < originalInterestingPattern.length; i++) {
 		// interestingPattern[i] = itemsRenaming.get("" +
 		// originalInterestingPattern[i]);
 		// }
-		// interestingExtension = itemsRenaming.get("7943");
+		// interestingExtension = itemsRenaming.get("8456");
 		// System.out.println("130 is " + rebasing[130]);
 	}
 
@@ -291,19 +290,6 @@ public class TransactionsBasedDataset implements Dataset {
 		this.originalNegTransactionsMapping = expandedNegTransactionsMapping;
 		this.possibleExtensions = this.computePossibleExtensions();
 		this.prefixCollector = parentDataset.prefixCollector;
-		// int shift = 11;
-		// isInteresting = false;
-		// if (this.sequence.length == interestingPattern.length - shift) {
-		// isInteresting = true;
-		// for (int i = 0; isInteresting && i < this.sequence.length; i++) {
-		// if (this.sequence[i] != interestingPattern[i + shift]) {
-		// isInteresting = false;
-		// }
-		// }
-		// }
-		// if (isInteresting) {
-		// System.out.println("ho");
-		// }
 	}
 
 	@Override

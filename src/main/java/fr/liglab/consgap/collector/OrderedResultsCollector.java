@@ -27,13 +27,13 @@ import java.util.List;
 public class OrderedResultsCollector extends ResultsCollector {
 	// gets results in order of length, shorter first
 	private final List<String[]> collectedSeq;
-	private final TreeNode filteringTree;
+	private final FilteringTree filteringTree;
 
 	// in this class, we build tree and check from the last item in the sequence
 	// to detect collision in prefix first as it gives more pruning
 	public OrderedResultsCollector() {
-		this.collectedSeq = new ArrayList<>();
-		this.filteringTree = new TreeNode();
+		this.collectedSeq = new ArrayList<>(10000);
+		this.filteringTree = new FilteringTree();
 	}
 
 	/*
@@ -42,42 +42,40 @@ public class OrderedResultsCollector extends ResultsCollector {
 	 * @see fr.liglab.consgap.internals.ResultsCollector#collect(int[], int)
 	 */
 	@Override
-	public synchronized EmergingStatus collect(int[] sequence, int expansionItem) {
-		int[] fullSeq = new int[sequence.length + 1];
-		System.arraycopy(sequence, 0, fullSeq, 1, sequence.length);
-		fullSeq[0] = expansionItem;
-		int lastPos = recursiveSubsetCheck(this.filteringTree, fullSeq, fullSeq.length - 1);
-		if (lastPos >= 0) {
-			if (lastPos == 0) {
+	public EmergingStatus collect(int[] sequence, int expansionItem) {
+		int[] fullSeq = null;
+		synchronized (this.filteringTree) {
+			int checkRes = this.filteringTree.checkSeqContainsMinimal(sequence, expansionItem);
+			if (checkRes == 1) {
+				return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
+			} else if (checkRes == 0) {
 				return EmergingStatus.EMERGING_WITH_EXPANSION;
 			} else {
-				return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
+				fullSeq = new int[sequence.length + 1];
+				System.arraycopy(sequence, 0, fullSeq, 1, sequence.length);
+				fullSeq[0] = expansionItem;
+				this.filteringTree.insert(fullSeq);
 			}
-		} else {
-			insertIntoTree(this.filteringTree, fullSeq);
-			String[] rebased = new String[fullSeq.length];
-			for (int i = 0; i < fullSeq.length; i++) {
-				rebased[i] = this.rebasing[fullSeq[i]];
-			}
-			this.collectedSeq.add(rebased);
-			return EmergingStatus.NEW_EMERGING;
 		}
+		String[] rebased = new String[fullSeq.length];
+		for (int i = 0; i < fullSeq.length; i++) {
+			rebased[i] = this.rebasing[fullSeq[i]];
+		}
+		synchronized (this.collectedSeq) {
+			this.collectedSeq.add(rebased);
+		}
+		return EmergingStatus.NEW_EMERGING;
 	}
 
 	@Override
 	public synchronized EmergingStatus hasPotential(int[] sequence, int expansionItem) {
-		int[] fullSeq = new int[sequence.length + 1];
-		System.arraycopy(sequence, 0, fullSeq, 1, sequence.length);
-		fullSeq[0] = expansionItem;
-		int lastPos = recursiveSubsetCheck(this.filteringTree, fullSeq, fullSeq.length - 1);
-		if (lastPos >= 0) {
-			if (lastPos == 0) {
-				return EmergingStatus.EMERGING_WITH_EXPANSION;
-			} else {
-				return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
-			}
-		} else {
+		int checkRes = this.filteringTree.checkSeqContainsMinimal(sequence, expansionItem);
+		if (checkRes < 0) {
 			return EmergingStatus.NO_EMERGING_SUBSET;
+		} else if (checkRes == 0) {
+			return EmergingStatus.EMERGING_WITH_EXPANSION;
+		} else {
+			return EmergingStatus.EMERGING_WITHOUT_EXPANSION;
 		}
 	}
 
@@ -104,38 +102,6 @@ public class OrderedResultsCollector extends ResultsCollector {
 			filtered.add(new String[] { iter.next() });
 		}
 		return filtered;
-	}
-
-	// checks from left to right
-	static private int recursiveSubsetCheck(TreeNode currentNode, int[] seq, int from) {
-		for (int i = from; i >= 0; i--) {
-			TreeNode nextNode = currentNode.get(seq[i]);
-			if (nextNode != null) {
-				// if it's a leaf, we're done
-				if (nextNode.isEmpty()) {
-					return i;
-				} else {
-					int subSetCheck = recursiveSubsetCheck(nextNode, seq, i - 1);
-					if (subSetCheck >= 0) {
-						return subSetCheck;
-					}
-				}
-			}
-		}
-		return -1;
-	}
-
-	static private void insertIntoTree(TreeNode rootNode, int[] seq) {
-		TreeNode currentNode = rootNode;
-		for (int i = seq.length - 1; i >= 0; i--) {
-			int item = seq[i];
-			TreeNode nextNode = currentNode.get(item);
-			if (nextNode == null) {
-				nextNode = new TreeNode();
-				currentNode.put(item, nextNode);
-			}
-			currentNode = nextNode;
-		}
 	}
 
 	@Override

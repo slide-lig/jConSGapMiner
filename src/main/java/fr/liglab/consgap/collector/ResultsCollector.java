@@ -20,9 +20,6 @@
 
 package fr.liglab.consgap.collector;
 
-import gnu.trove.map.hash.TIntObjectHashMap;
-
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -50,14 +47,5 @@ public abstract class ResultsCollector {
 
 	public static enum EmergingStatus {
 		NEW_EMERGING, EMERGING_WITHOUT_EXPANSION, EMERGING_WITH_EXPANSION, NO_EMERGING_SUBSET
-	}
-
-	public static class TreeNode extends TIntObjectHashMap<TreeNode> {
-		public int[] seqFragment;
-
-		@Override
-		public String toString() {
-			return "TreeNode [super=" + super.toString() + " seqFragment=" + Arrays.toString(seqFragment) + "]";
-		}
 	}
 }
