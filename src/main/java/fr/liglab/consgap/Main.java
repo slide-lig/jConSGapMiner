@@ -53,6 +53,7 @@ public class Main {
 		options.addOption("t", true, "How many threads will be launched (defaults to your machine's processors count)");
 		options.addOption("p", false, "Prune backspace");
 		options.addOption("e", false, "Prune contains emerging");
+		options.addOption("s", false, "Prune sibling emerging");
 		options.addOption(
 				"f",
 				true,
@@ -114,6 +115,11 @@ public class Main {
 			ConfStats.pruneContainsEmerging = true;
 		} else {
 			ConfStats.pruneContainsEmerging = false;
+		}
+		if (cmd.hasOption('s')) {
+			ConfStats.pruneSiblingsEmerging = true;
+		} else {
+			ConfStats.pruneSiblingsEmerging = false;
 		}
 		ConfStats.checkConfCoherent();
 		ResultsCollector collector;

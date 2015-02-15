@@ -9,6 +9,7 @@ public class ConfStats {
 	public static boolean pruneBackspace;
 	public static boolean pruneContainsEmerging;
 	public static boolean breadthFirst;
+	public static boolean pruneSiblingsEmerging;
 	public static boolean minimizeDuringExec;
 	public static int minimizeThreshold;
 	private static final AtomicLong backspacePruningCount = new AtomicLong(0);
@@ -16,6 +17,7 @@ public class ConfStats {
 	private static final AtomicLong expandCount = new AtomicLong(0);
 	private static final AtomicLong seedItemStarted = new AtomicLong(0);
 	private static final AtomicLong emergingPruningCount = new AtomicLong(0);
+	private static final AtomicLong emergingSiblingsPruningCount = new AtomicLong(0);
 
 	public static void checkConfCoherent() {
 		if (pruneBackspace) {
@@ -51,10 +53,15 @@ public class ConfStats {
 		emergingPruningCount.incrementAndGet();
 	}
 
+	public static void incEmergingSiblingsPruning() {
+		emergingSiblingsPruningCount.incrementAndGet();
+	}
+
 	public static void printShortStats() {
 		System.out.println("backspacePruningCount: " + backspacePruningCount.get() + " containsEmergingPruningCount: "
 				+ containsEmergingPruningCount.get() + " expandCount: " + expandCount.get() + " seedItemStarted: "
-				+ seedItemStarted.get() + " emergingPruningCount: " + emergingPruningCount.get());
+				+ seedItemStarted.get() + " emergingPruningCount: " + emergingPruningCount.get()
+				+ " emergingSiblingsPruningCount: " + emergingSiblingsPruningCount.get());
 	}
 
 	public static void startStatsThread() {

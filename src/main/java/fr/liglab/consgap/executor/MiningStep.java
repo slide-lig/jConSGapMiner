@@ -25,34 +25,57 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import fr.liglab.consgap.ConfStats;
 import fr.liglab.consgap.dataset.Dataset;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 public class MiningStep {
 	final private Dataset dataset;
 	final private AtomicInteger extensionsIndex;
 	final private int[] extensions;
 	final private boolean isRoot;
-
-	public MiningStep(Dataset dataset) {
-		this(dataset, false);
-	}
+	final private TIntSet deniedExtensionsParent;
+	final private TIntSet deniedExtensionsChildren;
 
 	public MiningStep(Dataset dataset, boolean isRoot) {
+		this(dataset, isRoot, null);
+	}
+
+	public MiningStep(Dataset dataset, boolean isRoot, TIntSet deniedExtensionsParent) {
 		this.isRoot = isRoot;
 		this.dataset = dataset;
 		this.extensions = dataset.getExtensions();
 		Arrays.sort(this.extensions);
 		this.extensionsIndex = new AtomicInteger();
+		if (ConfStats.pruneSiblingsEmerging) {
+			this.deniedExtensionsParent = deniedExtensionsParent;
+			if (deniedExtensionsParent == null) {
+				this.deniedExtensionsChildren = new TIntHashSet();
+			} else {
+				this.deniedExtensionsChildren = new TIntHashSet(deniedExtensionsParent);
+			}
+		} else {
+			this.deniedExtensionsChildren = null;
+			this.deniedExtensionsParent = null;
+		}
 	}
 
 	public MiningStep next() {
 		Dataset[] expansionOutput = new Dataset[1];
 		for (int index = this.extensionsIndex.getAndIncrement(); index < extensions.length; index = this.extensionsIndex
 				.getAndIncrement()) {
+			final int extension = extensions[index];
+			if (ConfStats.pruneSiblingsEmerging && this.deniedExtensionsParent != null) {
+				synchronized (this.deniedExtensionsParent) {
+					if (this.deniedExtensionsParent.contains(extension)) {
+						ConfStats.incEmergingSiblingsPruning();
+						continue;
+					}
+				}
+			}
 			ConfStats.incExpand();
 			if (isRoot) {
 				ConfStats.incSeedItemStarted();
 			}
-			final int extension = extensions[index];
 			expansionOutput[0] = null;
 			switch (this.dataset.expand(extension, expansionOutput)) {
 			case BACKSCAN:
@@ -60,13 +83,18 @@ public class MiningStep {
 			case DEAD_END:
 				break;
 			case EMERGING:
+				if (ConfStats.pruneSiblingsEmerging) {
+					synchronized (this.deniedExtensionsChildren) {
+						this.deniedExtensionsChildren.add(extension);
+					}
+				}
 				break;
 			case EMERGING_PARENT:
 				return null;
 			case INFREQUENT:
 				break;
 			case OK:
-				return new MiningStep(expansionOutput[0]);
+				return new MiningStep(expansionOutput[0], false, this.deniedExtensionsChildren);
 			default:
 				System.err.println("not supposed to be here, expansion status unknown");
 			}
@@ -83,24 +111,4 @@ public class MiningStep {
 		return Arrays.toString(this.dataset.getSequence()) + " " + this.extensionsIndex.get() + "/"
 				+ this.extensions.length;
 	}
-
-	// private static void mineInThread(Dataset dataset) {
-	// final int[] extensions = dataset.getExtensions();
-	// Arrays.sort(extensions);
-	// for (int index = 0; index < extensions.length; index++) {
-	// loopCounts.incrementAndGet();
-	// final int extension = extensions[index];
-	// Dataset extDataset = null;
-	// try {
-	// extDataset = dataset.expand(extension);
-	// } catch (EmergingParentException e) {
-	// return;
-	// } catch (BackScanException | EmergingExpansionException |
-	// DeadEndException | InfrequentException e) {
-	// }
-	// if (extDataset != null) {
-	// mineInThread(extDataset);
-	// }
-	// }
-	// }
 }
