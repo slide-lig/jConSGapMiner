@@ -22,7 +22,7 @@ public class ConfStats {
 	public static void checkConfCoherent() {
 		if (pruneBackspace) {
 			if (!breadthFirst) {
-				if (minimizeDuringExec || pruneContainsEmerging) {
+				if (minimizeDuringExec || pruneContainsEmerging || pruneSiblingsEmerging) {
 					throw new RuntimeException(
 							"can't minimize during exec or prune if contains emerging when pruning backspace and going depth first");
 				}

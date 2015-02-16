@@ -11,9 +11,9 @@ public class PostFilteringPrefixCollector implements PrefixCollector {
 	}
 
 	@Override
-	public void collectPrefix(int[] sequence, int extension, TIntSet prefix) {
+	public void collectPrefix(int[] sequence, TIntSet prefix) {
 		synchronized (this) {
-			insertIntoTree(sequence, extension, prefix);
+			insertIntoTree(sequence, prefix);
 		}
 	}
 
@@ -23,7 +23,7 @@ public class PostFilteringPrefixCollector implements PrefixCollector {
 		return (sequence.length - 1 - firstKept);
 	}
 
-	private void insertIntoTree(final int[] seq, final int extension, final TIntSet prefix) {
+	private void insertIntoTree(final int[] seq, final TIntSet prefix) {
 		TIntIterator prefixIterator = prefix.iterator();
 		while (prefixIterator.hasNext()) {
 			PrefixTreeNode currentNode = this.rootNode;
@@ -42,14 +42,6 @@ public class PostFilteringPrefixCollector implements PrefixCollector {
 				if (nextNode == null) {
 					nextNode = new PrefixTreeNode();
 					currentNode.put(item, nextNode);
-				}
-				currentNode = nextNode;
-			}
-			{
-				PrefixTreeNode nextNode = currentNode.get(extension);
-				if (nextNode == null) {
-					nextNode = new PrefixTreeNode();
-					currentNode.put(extension, nextNode);
 				}
 				currentNode = nextNode;
 			}

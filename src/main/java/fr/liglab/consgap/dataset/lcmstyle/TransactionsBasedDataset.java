@@ -266,7 +266,7 @@ public class TransactionsBasedDataset implements Dataset {
 		// originalInterestingPattern[i]);
 		// }
 		// interestingExtension = itemsRenaming.get("8456");
-		// System.out.println("130 is " + rebasing[130]);
+		// System.out.println("2 is " + rebasing[2]);
 	}
 
 	protected TransactionsBasedDataset(TransactionsBasedDataset parentDataset, int expansionItem,
@@ -288,8 +288,8 @@ public class TransactionsBasedDataset implements Dataset {
 		this.negativeTransactions = parentDataset.negativeTransactions;
 		this.originalPosTransactionsMapping = expandedPosTransactionsMapping;
 		this.originalNegTransactionsMapping = expandedNegTransactionsMapping;
-		this.possibleExtensions = this.computePossibleExtensions();
 		this.prefixCollector = parentDataset.prefixCollector;
+		this.possibleExtensions = this.computePossibleExtensions();
 	}
 
 	@Override
@@ -456,15 +456,6 @@ public class TransactionsBasedDataset implements Dataset {
 				}
 			}
 		}
-		// we now compute the support in the negative dataset
-		if (ConfStats.pruneBackspace) {
-			TIntSet prefix = this.checkBackscan(expandedPosPositions, expandedNegPositions);
-			if (prefix != null) {
-				ConfStats.incBackspacePruning();
-				this.prefixCollector.collectPrefix(this.sequence, expansionItem, prefix);
-				return ExpandStatus.BACKSCAN;
-			}
-		}
 		// if there are potential future expansions
 		// we can now shift expanded positions to fill the null entries
 		final Iterator<List<PositionAndProvenance>> expandedPosPosIter = expandedPosPositions.iterator();
@@ -503,6 +494,10 @@ public class TransactionsBasedDataset implements Dataset {
 		}
 		expandedDataset[0] = this.inistantiateDataset(expansionItem, expandedPosPositions, expandedNegPositions,
 				expandedPosTransactionsMapping, expandedNegTransactionsMapping);
+		if (expandedDataset[0].getExtensions() == null) {
+			expandedDataset[0] = null;
+			return ExpandStatus.BACKSCAN;
+		}
 		return ExpandStatus.OK;
 	}
 
@@ -518,6 +513,7 @@ public class TransactionsBasedDataset implements Dataset {
 			seqPos = this.currentSeqPresenceNegative.get(transIndex);
 		}
 		ArrayList<PositionAndProvenance> res = null;
+		TIntList startPosBuffer = new TIntArrayList(100);
 		int currentSeqIndex = 0;
 		// Iterator<PositionAndProvenance> currentSeqIter = seqPos.iterator();
 		TIntIterator expansionIterator = extensionItemPos.iterator();
@@ -542,11 +538,39 @@ public class TransactionsBasedDataset implements Dataset {
 					res = new ArrayList<>();
 				}
 				final int provenanceFirstIndex = currentSeqIndex - 1;
+				if (seqPos.get(provenanceFirstIndex).getStartingPositions() != null) {
+					startPosBuffer.add(seqPos.get(provenanceFirstIndex).getStartingPositions());
+				} else {
+					startPosBuffer.add(seqPos.get(provenanceFirstIndex).getPosition());
+				}
 				int provenanceLastIndex = currentSeqIndex;
 				for (provenanceLastIndex = currentSeqIndex; provenanceLastIndex < seqPos.size()
 						&& seqPos.get(provenanceLastIndex).getPosition() > expansionPos; provenanceLastIndex++) {
+					if (seqPos.get(provenanceLastIndex).getStartingPositions() != null) {
+						int lastElem = startPosBuffer.get(startPosBuffer.size() - 1);
+						int[] posList = seqPos.get(provenanceLastIndex).getStartingPositions();
+						if (posList[0] < lastElem) {
+							startPosBuffer.add(posList);
+						} else {
+							for (int i = 0; i < posList.length; i++) {
+								if (posList[i] < lastElem) {
+									startPosBuffer.add(posList[i]);
+								}
+							}
+						}
+					} else {
+						startPosBuffer.add(seqPos.get(provenanceLastIndex).getPosition());
+					}
 				}
-				res.add(new PositionAndProvenance(expansionPos, provenanceFirstIndex, provenanceLastIndex, seqPos));
+				int[] startPos;
+				if (provenanceFirstIndex == provenanceLastIndex - 1
+						&& seqPos.get(provenanceFirstIndex).getStartingPositions() != null) {
+					startPos = seqPos.get(provenanceFirstIndex).getStartingPositions();
+				} else {
+					startPos = startPosBuffer.toArray();
+				}
+				startPosBuffer.clear();
+				res.add(new PositionAndProvenance(expansionPos, startPos));
 			}
 		}
 		if (res != null) {
@@ -556,39 +580,137 @@ public class TransactionsBasedDataset implements Dataset {
 	}
 
 	protected int[] computePossibleExtensions() {
-		TIntSet extInTrans = new TIntHashSet();
-		TIntIntMap occCount = new TIntIntHashMap();
-		for (int i = 0; i < this.currentSeqPresencePositive.size(); i++) {
-			int[] transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
-			Iterator<PositionAndProvenance> currentSeqIter = this.currentSeqPresencePositive.get(i).iterator();
-			int validAreaStart = Integer.MAX_VALUE;
-			int validAreaEnd;
-			while (currentSeqIter.hasNext()) {
-				int oldStart = validAreaStart;
-				validAreaEnd = currentSeqIter.next().getPosition();// non
-																	// inclusive
-				validAreaStart = Math.max(validAreaEnd - 1 - this.getGapConstraint(), 0);// inclusive
-				validAreaEnd = Math.min(oldStart, validAreaEnd);
-				for (int j = validAreaStart; j < validAreaEnd; j++) {
-					if (transaction[j] != -1) {
-						extInTrans.add(transaction[j]);
+		if (ConfStats.pruneBackspace) {
+			TIntSet backSpace = null;
+			TIntSet extInTrans = new TIntHashSet();
+			TIntIntMap occCount = new TIntIntHashMap();
+			for (int i = 0; i < this.currentSeqPresencePositive.size(); i++) {
+				int[] transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
+				Iterator<PositionAndProvenance> currentSeqIter = this.currentSeqPresencePositive.get(i).iterator();
+				int validAreaStart = Integer.MAX_VALUE;
+				int validAreaEnd;
+				int lastStartChecked = Integer.MAX_VALUE;
+				while (currentSeqIter.hasNext()) {
+					int oldStart = validAreaStart;
+					PositionAndProvenance posProv = currentSeqIter.next();
+					validAreaEnd = posProv.getPosition();// non
+															// inclusive
+					if (backSpace == null || !backSpace.isEmpty()) {
+						if (posProv.getStartingPositions() == null) {
+							TIntSet transBackspace = getTransactionBackSpace(transaction, posProv.getPosition(),
+									this.gapConstraint);
+							if (backSpace == null) {
+								backSpace = transBackspace;
+							} else {
+								backSpace.retainAll(transBackspace);
+							}
+						} else {
+							for (int startPos : posProv.getStartingPositions()) {
+								if (startPos < lastStartChecked) {
+									lastStartChecked = startPos;
+									TIntSet transBackspace = getTransactionBackSpace(transaction, startPos,
+											this.gapConstraint);
+									if (backSpace == null) {
+										backSpace = transBackspace;
+									} else {
+										backSpace.retainAll(transBackspace);
+									}
+									if (backSpace.isEmpty()) {
+										break;
+									}
+								}
+							}
+						}
+					}
+					validAreaStart = Math.max(validAreaEnd - 1 - this.getGapConstraint(), 0);// inclusive
+					validAreaEnd = Math.min(oldStart, validAreaEnd);
+					for (int j = validAreaStart; j < validAreaEnd; j++) {
+						if (transaction[j] != -1) {
+							extInTrans.add(transaction[j]);
+						}
+					}
+				}
+				TIntIterator validExtInTrans = extInTrans.iterator();
+				while (validExtInTrans.hasNext()) {
+					occCount.adjustOrPutValue(validExtInTrans.next(), 1, 1);
+				}
+				extInTrans.clear();
+			}
+			if (!backSpace.isEmpty()) {
+				for (int i = 0; i < this.currentSeqPresenceNegative.size(); i++) {
+					int lastStartChecked = Integer.MAX_VALUE;
+					int[] transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[i]);
+					Iterator<PositionAndProvenance> currentSeqIter = this.currentSeqPresenceNegative.get(i).iterator();
+					while (currentSeqIter.hasNext() && !backSpace.isEmpty()) {
+						PositionAndProvenance posProv = currentSeqIter.next();
+						if (posProv.getStartingPositions() == null) {
+							TIntSet transBackspace = getTransactionBackSpace(transaction, posProv.getPosition(),
+									this.gapConstraint);
+							backSpace.retainAll(transBackspace);
+						} else {
+							for (int startPos : posProv.getStartingPositions()) {
+								if (startPos < lastStartChecked) {
+									lastStartChecked = startPos;
+									TIntSet transBackspace = getTransactionBackSpace(transaction, startPos,
+											this.gapConstraint);
+									backSpace.retainAll(transBackspace);
+									if (backSpace.isEmpty()) {
+										break;
+									}
+								}
+							}
+						}
 					}
 				}
 			}
-			TIntIterator validExtInTrans = extInTrans.iterator();
-			while (validExtInTrans.hasNext()) {
-				occCount.adjustOrPutValue(validExtInTrans.next(), 1, 1);
+			if (!backSpace.isEmpty()) {
+				ConfStats.incBackspacePruning();
+				this.prefixCollector.collectPrefix(this.sequence, backSpace);
+				return null;
 			}
-			extInTrans.clear();
-		}
-		TIntIntIterator occCountIter = occCount.iterator();
-		while (occCountIter.hasNext()) {
-			occCountIter.advance();
-			if (occCountIter.value() < this.posFreqLowerBound) {
-				occCountIter.remove();
+			TIntIntIterator occCountIter = occCount.iterator();
+			while (occCountIter.hasNext()) {
+				occCountIter.advance();
+				if (occCountIter.value() < this.posFreqLowerBound) {
+					occCountIter.remove();
+				}
 			}
+			return occCount.keys();
+		} else {
+			TIntSet extInTrans = new TIntHashSet();
+			TIntIntMap occCount = new TIntIntHashMap();
+			for (int i = 0; i < this.currentSeqPresencePositive.size(); i++) {
+				int[] transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
+				Iterator<PositionAndProvenance> currentSeqIter = this.currentSeqPresencePositive.get(i).iterator();
+				int validAreaStart = Integer.MAX_VALUE;
+				int validAreaEnd;
+				while (currentSeqIter.hasNext()) {
+					int oldStart = validAreaStart;
+					validAreaEnd = currentSeqIter.next().getPosition();// non
+																		// inclusive
+					validAreaStart = Math.max(validAreaEnd - 1 - this.getGapConstraint(), 0);// inclusive
+					validAreaEnd = Math.min(oldStart, validAreaEnd);
+					for (int j = validAreaStart; j < validAreaEnd; j++) {
+						if (transaction[j] != -1) {
+							extInTrans.add(transaction[j]);
+						}
+					}
+				}
+				TIntIterator validExtInTrans = extInTrans.iterator();
+				while (validExtInTrans.hasNext()) {
+					occCount.adjustOrPutValue(validExtInTrans.next(), 1, 1);
+				}
+				extInTrans.clear();
+			}
+			TIntIntIterator occCountIter = occCount.iterator();
+			while (occCountIter.hasNext()) {
+				occCountIter.advance();
+				if (occCountIter.value() < this.posFreqLowerBound) {
+					occCountIter.remove();
+				}
+			}
+			return occCount.keys();
 		}
-		return occCount.keys();
 	}
 
 	protected TransactionsBasedDataset inistantiateDataset(int expansionItem,
@@ -621,8 +743,8 @@ public class TransactionsBasedDataset implements Dataset {
 	}
 
 	private static TIntSet getTransactionBackSpace(int[] transaction, int position, int gap) {
-		int backspaceBound = Math.min(position + gap + 2, transaction.length);
-		int startPos = position + 1;
+		final int backspaceBound = Math.min(position + gap + 2, transaction.length);
+		final int startPos = position + 1;
 		TIntSet out = new TIntHashSet();
 		for (int pos = startPos; pos < backspaceBound; pos++) {
 			if (transaction[pos] != -1) {
@@ -630,72 +752,6 @@ public class TransactionsBasedDataset implements Dataset {
 			}
 		}
 		return out;
-	}
-
-	private TIntSet checkBackscan(List<List<PositionAndProvenance>> expandedPosPositions,
-			List<List<PositionAndProvenance>> expandedNegPositions) {
-		TIntSet inter = null;
-		int[] lastIndexPerDepth = new int[this.sequence.length];
-		for (int i = 0; i < expandedPosPositions.size(); i++) {
-			List<PositionAndProvenance> lPos = expandedPosPositions.get(i);
-			if (lPos != null) {
-				Arrays.fill(lastIndexPerDepth, 0);
-				int[] transaction;
-				if (this.originalPosTransactionsMapping != null) {
-					transaction = this.positiveTransactions.get(this.originalPosTransactionsMapping[i]);
-				} else {
-					transaction = this.positiveTransactions.get(i);
-				}
-				for (PositionAndProvenance pos : lPos) {
-					inter = this.recCheckBackscan(pos, transaction, lastIndexPerDepth, 0, inter);
-				}
-				if (inter.isEmpty()) {
-					return null;
-				}
-			}
-		}
-		for (int i = 0; i < expandedNegPositions.size(); i++) {
-			List<PositionAndProvenance> lPos = expandedNegPositions.get(i);
-			if (lPos != null) {
-				Arrays.fill(lastIndexPerDepth, 0);
-				int[] transaction;
-				if (this.originalNegTransactionsMapping != null) {
-					transaction = this.negativeTransactions.get(this.originalNegTransactionsMapping[i]);
-				} else {
-					transaction = this.negativeTransactions.get(i);
-				}
-				for (PositionAndProvenance pos : lPos) {
-					inter = this.recCheckBackscan(pos, transaction, lastIndexPerDepth, 0, inter);
-				}
-				if (inter.isEmpty()) {
-					return null;
-				}
-			}
-		}
-		return inter;
-	}
-
-	private TIntSet recCheckBackscan(PositionAndProvenance pos, int[] transaction, int[] lastIndexPerDepth, int depth,
-			TIntSet inter) {
-		if (pos.getProvenanceFirstIndex() == -1) {
-			TIntSet content = getTransactionBackSpace(transaction, pos.getPosition(), this.getGapConstraint());
-			if (inter == null) {
-				return content;
-			} else {
-				inter.retainAll(content);
-			}
-		} else {
-			for (int i = Math.max(lastIndexPerDepth[depth], pos.getProvenanceFirstIndex()); i < pos
-					.getProvenanceLastIndex(); i++) {
-				PositionAndProvenance newPos = pos.getCorrespondingList().get(i);
-				inter = recCheckBackscan(newPos, transaction, lastIndexPerDepth, depth + 1, inter);
-				if (inter.isEmpty()) {
-					return inter;
-				}
-			}
-			lastIndexPerDepth[depth] = pos.getProvenanceLastIndex();
-		}
-		return inter;
 	}
 
 	@Override

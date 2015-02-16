@@ -51,7 +51,9 @@ public class MiningStep {
 			if (deniedExtensionsParent == null) {
 				this.deniedExtensionsChildren = new TIntHashSet();
 			} else {
-				this.deniedExtensionsChildren = new TIntHashSet(deniedExtensionsParent);
+				synchronized (deniedExtensionsParent) {
+					this.deniedExtensionsChildren = new TIntHashSet(deniedExtensionsParent);
+				}
 			}
 		} else {
 			this.deniedExtensionsChildren = null;
