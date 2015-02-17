@@ -11,10 +11,10 @@ import java.util.Set;
 
 public class BackSpaceChecker {
 	List<int[]> dataset;
-	int gap = 2;
+	int gap;
 
-	public BackSpaceChecker() {
-		String datasetFile = "/Users/vleroy/Workspace/emerging/Dall_as_nums.txt_tiny";
+	public BackSpaceChecker(String datasetFile, int gap) {
+		this.gap = gap;
 		this.dataset = new ArrayList<>();
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(datasetFile));
@@ -31,6 +31,10 @@ public class BackSpaceChecker {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public BackSpaceChecker() {
+		this("/Users/vleroy/Workspace/emerging/Dall_as_nums.txt_tiny", 2);
 	}
 
 	public Set<Integer> getBackSpace(String[] seq) {
