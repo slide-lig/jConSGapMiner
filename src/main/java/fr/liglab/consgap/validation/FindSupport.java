@@ -112,7 +112,7 @@ public class FindSupport {
 	}
 
 	public static void main(String[] args) throws Exception {
-		int[] seq = { 8212 };
+		int[] seq = { 8394, 7121, 7972 };
 		int gap = 2;
 		String datasetFile = "/Users/vleroy/Workspace/emerging/Dall_as_nums.txt_tiny";
 		while (true) {

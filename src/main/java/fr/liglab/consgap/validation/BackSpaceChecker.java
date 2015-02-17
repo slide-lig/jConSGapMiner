@@ -54,6 +54,18 @@ public class BackSpaceChecker {
 		return backSpaces.get(backSpaces.size() - 1);
 	}
 
+	public List<List<int[]>> getOccurencesPositions(int[] seq) {
+		List<List<int[]>> matchingPos = new ArrayList<>();
+		for (int[] transaction : this.dataset) {
+			if (match(seq, transaction, gap)) {
+				matchingPos.add(matchPos(seq, transaction, gap));
+			} else {
+				matchingPos.add(null);
+			}
+		}
+		return matchingPos;
+	}
+
 	private static boolean match(int[] pattern, int[] transaction, int gap) {
 		for (int i = pattern.length - 1; i < transaction.length; i++) {
 			if (transaction[i] == pattern[pattern.length - 1]) {
@@ -150,6 +162,23 @@ public class BackSpaceChecker {
 			}
 		}
 		return res;
+	}
+
+	public static void main(String[] args) {
+		BackSpaceChecker bs = new BackSpaceChecker();
+		List<List<int[]>> pos = bs.getOccurencesPositions(new int[] { 8394, 7121, 7972 });
+		int lineNum = 0;
+		for (List<int[]> p : pos) {
+			lineNum++;
+			if (p == null) {
+				System.out.println("occurences at line " + lineNum + ": 0");
+			} else {
+				System.out.println("occurences at line " + lineNum + ": " + p.size());
+				for (int[] oc : p) {
+					System.out.println(Arrays.toString(oc));
+				}
+			}
+		}
 	}
 
 }
